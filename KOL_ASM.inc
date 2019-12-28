@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 // KOL_ASM.inc (to inlude in KOL.pas)
-// v 3.141592653589
+// v 3.16
 
 function MsgBox( const S: KOLString; Flags: DWORD ): DWORD;
 asm

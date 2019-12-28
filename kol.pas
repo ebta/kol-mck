@@ -14,7 +14,7 @@
   Key Objects Library (C) 2000 by Vladimir Kladov.
 
 ****************************************************************
-* VERSION 3.15
+* VERSION 3.16
 ****************************************************************
 
   K.O.L. - is a set of objects and functions to create small programs
@@ -15930,13 +15930,14 @@ end;
 
 function TObj.VmtAddr: Pointer;
 asm
-       MOV    EAX, [EAX - 4]
+       //MOV    EAX, [EAX - 4]
+       MOV    EAX, [EAX]
 end;
 
 function TObj.InstanceSize: Integer;
 asm
-       MOV    EAX, [EAX]
-       MOV    EAX,[EAX-4]
+       //MOV    EAX, [EAX]
+       MOV    EAX, [EAX-4]
 end;
 
 {$IFDEF OLD_FREE}
@@ -25418,7 +25419,7 @@ function Time2StrFmt( const Fmt: KOLString; D: TDateTime ): KOLString;
 var ST: TSystemTime;
     lpFmt: PKOLChar;
 begin
-  if D < 1 then D := D + 1;
+  if D < 1 then D := D + 700000;
   DateTime2SystemTime( D, ST );
   lpFmt := nil;
   if Fmt <> '' then lpFmt := PKOLChar( Fmt );
@@ -34279,8 +34280,8 @@ asm
         MOV      ECX, [EDX].TEvents.fOnResize.TMethod.Code
         MOV      EAX, [EDX].TEvents.fOnResize.TMethod.Data
         {$ELSE}
-        MOV      ECX, [EDX].TControl.fOnResize.TMethod.Code
-        MOV      EAX, [EDX].TControl.fOnResize.TMethod.Data
+        MOV      ECX, [EDX].TControl.EV.fOnResize.TMethod.Code
+        MOV      EAX, [EDX].TControl.EV.fOnResize.TMethod.Data
         {$ENDIF}
         {$IFDEF  NIL_EVENTS}
         JECXZ    @@ret_true1
@@ -34446,7 +34447,7 @@ asm
         MOV      EAX, [EDX].TControl.EV
         MOV      ECX, [EAX].TEvents.fOnDropDown.TMethod.Code
         {$ELSE}
-        MOV      ECX, [EDX].TControl.fOnDropDown.TMethod.Code
+        MOV      ECX, [EDX].TControl.EV.fOnDropDown.TMethod.Code
         {$ENDIF}
         {$IFDEF  NIL_EVENTS}
         JECXZ    @@ret_z
@@ -34454,7 +34455,7 @@ asm
         {$IFDEF  EVENTS_DYNAMIC}
         MOV      EAX, [EAX].TEvents.fOnDropDown.TMethod.Data
         {$ELSE}
-        MOV      EAX, [EDX].TControl.fOnDropDown.TMethod.Data
+        MOV      EAX, [EDX].TControl.EV.fOnDropDown.TMethod.Data
         {$ENDIF}
         CALL     ECX
 @@ret_z:
@@ -57907,6 +57908,7 @@ begin
           Sender.EV.FOnHide( Sender );
     end;
   end;
+  Sender.UpdateWndStyles;
   Result := FALSE;
 end;
 

@@ -3,7 +3,7 @@ KEY OBJECTS LIBRARY for Delphi (and Free Pascal Compiler) - to make applications
 Copyright (C) by Vladimir Kladov, 1999-2010.
 Some parts of code are Copyright (C) intellectual property by other people, see comments in code and on KOL site. Thanks to all for help with KOL and MCK!
 
-v. 3.00 (3-Oct-2010)
+v. 3.16 (26-Nov-2011)
 
 To get newer version, go to Web-page http://www.kolmck.net and get there updates.
 

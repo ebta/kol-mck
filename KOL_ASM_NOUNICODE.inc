@@ -2341,8 +2341,9 @@ asm
          POP   ECX
          JC    @@ret_false1
          CALL  ESI
+         XOR   AL, 1   //+Dufa
 @@rsltEAX_ResultTrue:
-         MOV   [EDI], EAX
+         MOV   [EDI], AL //+VK
 @@ResultTrue:
          MOV   AL, 1
          POP   EDI
@@ -2359,7 +2360,10 @@ asm
          PUSH  [EDX].TTVDispInfo.item.hItem
          CALL  @@prepareCallEvent
          POP   ECX
-         JNC   @@justEventCall
+         //JNC   @@justEventCall ---//dufa
+         JC    @@ret_false1         //dufa
+         CALL  ESI                  //dufa
+         JMP   @@rsltEAX_ResultTrue //dufa
 @@Rslt1_ResultTrue:
          XOR   EAX, EAX
          INC   EAX
