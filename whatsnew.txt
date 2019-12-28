@@ -1,0 +1,63 @@
+Что нового в версии KOLnMCK от 22.09.08 по сравнению с KOLnMCK 2.87
+-------------------------------------------------------------------
+
+Изменено
+========
+- [MCK] Шрифт по умолчанию на System, добавлены свойства TKOLProject.DefaultFont: TKOLFont, TKOLForm.FontDefault: Boolean, более чёткий контроль того, когда генерировать код для создания шрифтов, (для поддержки Unicode следует использовать True Type шрифт с поддержкой Unicode, например, Tahoma - автор: azsd).
+- Код функции _WStrComp.
+- Работа с файлами UTF-8 с BOM в TWStrList. Автор: azsd
+
+Исправлено
+==========
+- Ошибки при подключенной UNICODE_CTRLS:
+         CrackStack_MapInResource,
+		 CrackStack_MapInFile,
+		 ToRadix,
+		 InsertSeparators,
+		 IndexOfChar. Автор: MTsv DN
+- TGraphicTool.SetFontName. Использование функции (W)StrLCopy. Автор: azsd
+- StrIsStartingFrom. Для случая, когда либо строка, либо шаблон равен nil. Автор: azsd
+- WStrLoadFromFile. В функции WideString использовался вызов ANSI функции File2Str. Автор: azsd
+- WndProcBitBtn. Отрисовка Unicode символов. Автор: MTsv DN
+- WndProcLabelEffect. Отрисовка Unicode символов. Автор: MTsv DN
+- TTrayIcon.SetTrayIcon. Наполовину обрезался тултип при UNICODE_CTRLS. Автор: MTsv DN
+- TControl.TBSetTooltips. При использовании UNICODE_CTRLS. Автор: azsd
+- TBitmap.SetHeight (обе версии). Автор: MTsv DN
+- Color2RGB (ASM-версия). Автор: Hallif
+- Исправления TLIST_FAST. Автор: Vladimir Kladov и mdw.
+- Некорректная работа в случае с raWord. Автор: =BuckLr=
+
+Добавлено
+=========
+- Файлы: KOL_ansi.inc (в противовес KOL_unicode.inc набор функций и определений ANSI API). Автор: azsd (возврат совместимости с версией D3 D[u]fa, с версией D2 - Кладов)
+         MCKAppExpert200x.pas (визард для удобного создания проекта KOLMCK в Delphi 7, 2005-2009 (в 5 версии будет работать после незначительных изменений)). Автор: D[u]fa
+		 MirrorKOLPackageD1x.dpk. Файлы проектов для Delphi 2005-2009.
+		 MirrorKOLPackageD1x.res. Файлы ресурсов для Delphi 2005-2009.
+		 MirrorKOLPackageD1x.dproj. Файлы проектов для Delphi 2007-2009.
+- Поддержка Delphi 2009 в KOL. Автор: azsd (возврат совместимости с версиями <= D7 D[u]fa)
+- Поддержка Unicode для MCK в Delphi 2009. Автор: MTsv DN
+- Процедура Put для TWStrList. Автор: azsd
+- Процедура WTextArea для Canvas. Автор: MTsv DN
+- Процедуры:
+         _aLStrFromPCharLen,
+         _aLStrFromPChar,
+		 RemoveWStr. Автор: azsd 
+- Улучшен код генерации МСК для 200х версий. Автор: D[u]fa
+		 
+Удалено
+=======
+- Файлы: delphiusesh.inc (нигде не использовался), 
+         mckAccEditor.inc (код был перенесен в PAS файл), 
+		 mckActionListEditor.inc (код был перенесен в PAS файл), 
+		 mckFileFilterEditor.inc (код был перенесен в PAS файл),
+		 mckLVColumnsEditor.inc (код был перенесен в PAS файл),
+		 mckMenuEditor.inc (код был перенесен в PAS файл),
+		 mckMenuEditorD2.pas (нигде не использовался),
+		 mckMenuEditorD3.pas (нигде не использовался),
+		 mckMenuEditorD4.pas (нигде не использовался),
+		 mckTBEditor.dfm (нигде не использовался),
+		 mckToolbarEditor.inc (код был перенесен в PAS файл),
+		 mckToolbarEditorD2.pas (нигде не использовался),
+		 mckToolbarEditorD3.pas (нигде не использовался),
+		 mckToolbarEditorD4.pas (нигде не использовался)
+

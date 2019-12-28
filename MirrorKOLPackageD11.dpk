@@ -1,0 +1,53 @@
+package MirrorKOLPackageD11;
+
+{$R *.res}
+{$ALIGN 8}
+{$ASSERTIONS ON}
+{$BOOLEVAL OFF}
+{$DEBUGINFO ON}
+{$EXTENDEDSYNTAX ON}
+{$IMPORTEDDATA ON}
+{$IOCHECKS ON}
+{$LOCALSYMBOLS ON}
+{$LONGSTRINGS ON}
+{$OPENSTRINGS ON}
+{$OPTIMIZATION ON}
+{$OVERFLOWCHECKS OFF}
+{$RANGECHECKS OFF}
+{$REFERENCEINFO ON}
+{$SAFEDIVIDE OFF}
+{$STACKFRAMES OFF}
+{$TYPEDADDRESS OFF}
+{$VARSTRINGCHECKS ON}
+{$WRITEABLECONST OFF}
+{$MINENUMSIZE 1}
+{$IMAGEBASE $400000}
+{$DESCRIPTION '_KOL_ mirror controls for Delphi 11'}
+{$DESIGNONLY}
+{$IMPLICITBUILD OFF}
+{$DEFINE INPACKAGE}
+
+requires
+  rtl,
+  vcl,
+  designide,
+  xmlrtl,
+  vclactnband,
+  vclx;
+
+contains
+  KOL in 'KOL.pas',
+  KOLadd in 'KOLadd.pas',
+  mirror in 'mirror.pas',
+  mckObjs in 'mckObjs.pas',
+  mckCtrls in 'mckCtrls.pas',
+  mckCtrlDraw in 'mckCtrlDraw.pas',
+  mckMenuEditor in 'mckMenuEditor.pas',
+  mckToolbarEditor in 'mckToolbarEditor.pas',
+  mckAccEditor in 'mckAccEditor.pas',
+  mckActionListEditor in 'mckActionListEditor.pas',
+  mckFileFilterEditor in 'mckFileFilterEditor.pas',
+  mckLVColumnsEditor in 'mckLVColumnsEditor.pas',
+  MCKAppExpert200x in 'MCKAppExpert200x.pas';
+
+end.

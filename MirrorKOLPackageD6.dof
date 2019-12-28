@@ -1,0 +1,131 @@
+[FileVersion]
+Version=6.0
+[Compiler]
+A=8
+B=0
+C=1
+D=1
+E=0
+F=0
+G=1
+H=1
+I=1
+J=1
+K=0
+L=1
+M=0
+N=1
+O=0
+P=1
+Q=0
+R=0
+S=0
+T=0
+U=0
+V=1
+W=1
+X=1
+Y=1
+Z=1
+ShowHints=1
+ShowWarnings=1
+UnitAliases=WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;
+[Linker]
+MapFile=3
+OutputObjs=0
+ConsoleApp=1
+DebugInfo=0
+RemoteSymbols=0
+MinStackSize=16384
+MaxStackSize=1048576
+ImageBase=4194304
+ExeDescription=_KOL_ mirror controls for Delphi 6
+[Directories]
+OutputDir=
+UnitOutputDir=
+PackageDLLOutputDir=
+PackageDCPOutputDir=
+SearchPath=D:\KOL;D:\KOL\Components\KOLTracker;D:\KOL\Components\DatePicker
+Packages=
+Conditionals=INPACKAGE;PAS_VERSION;noMCKLOG;noNOT_USE_KOLCtrlWrapper
+DebugSourceDirs=
+UsePackages=0
+[Parameters]
+RunParams=
+HostApplication=
+Launcher=
+UseLauncher=0
+DebugCWD=
+[Version Info]
+IncludeVerInfo=1
+AutoIncBuild=0
+MajorVer=1
+MinorVer=0
+Release=0
+Build=0
+Debug=0
+PreRelease=0
+Special=0
+Private=0
+DLL=0
+Locale=1049
+CodePage=1251
+[Version Info Keys]
+CompanyName=
+FileDescription=
+FileVersion=1.0.0.0
+InternalName=
+LegalCopyright=
+LegalTrademarks=
+OriginalFilename=
+ProductName=
+ProductVersion=1.0.0.0
+Comments=
+[Excluded Packages]
+c:\borland\delphi6\Bin\dclbde60.bpl=Borland BDE DB Components
+C:\Borland\Delphi6\Bin\dbx60.bpl=Borland SQL Explorer UI Package
+c:\borland\delphi6\Bin\DCLIB60.bpl=InterBase Data Access Components
+c:\borland\delphi6\Bin\dclcds60.bpl=Borland Base Cached ClientDataset Component
+C:\Borland\Delphi6\Bin\dclmid60.bpl=Borland MyBase DataAccess Components
+c:\borland\delphi6\Bin\dclbdecds60.bpl=Borland Local BDE ClientDataset Components
+C:\WINDOWS\system32\ibevnt60.bpl=Borland Interbase Event Alerter Component
+c:\borland\delphi6\Bin\dclqrt60.bpl=QuickReport Components
+c:\borland\delphi6\Bin\dcltee60.bpl=TeeChart Components
+c:\borland\delphi6\Bin\dcldss60.bpl=Borland Decision Cube Components
+c:\borland\delphi6\Bin\dcltqr60.bpl=TeeChart for QuickReport Components
+c:\borland\delphi6\Bin\dclclxdb60.bpl=Borland CLX Database Components
+C:\Borland\Delphi6\Bin\dclclxstd60.bpl=Borland CLX Standard Components
+c:\borland\delphi6\Bin\dclmcn60.bpl=Borland DataSnap Connection Components
+c:\borland\delphi6\Bin\dclsmpedit60.bpl=Borland Editor Script Enhancements
+c:\borland\delphi6\Bin\applet60.bpl=Borland Control Panel Applet Package
+c:\borland\delphi6\Bin\dclemacsedit60.bpl=Borland Editor Emacs Enhancements
+c:\borland\delphi6\Bin\dclact60.bpl=Borland ActionBar Components
+c:\borland\delphi6\Bin\dcl31w60.bpl=Delphi 1.0 Compatibility Components
+c:\borland\delphi6\Bin\dclsmp60.bpl=Borland Sample Components
+c:\borland\delphi6\Bin\dclshlctrls60.bpl=Shell Control Property and Component Editors
+[HistoryLists\hlConditionals]
+Count=13
+Item0=INPACKAGE;PAS_VERSION;noMCKLOG;noNOT_USE_KOLCtrlWrapper
+Item1=INPACKAGE;PAS_VERSION;noMCKLOG;NOT_USE_KOLCtrlWrapper
+Item2=INPACKAGE;PAS_VERSION;noMCKLOG
+Item3=INPACKAGE;PAS_VERSION;MCKLOG
+Item4=INPACKAGE;MCKLOG
+Item5=INPACKAGE
+Item6=MCK
+Item7=KOL_MCK;KOL
+Item8=not_NOT_KOLCtrlWrapper_;OpenSaveDialog_Extended
+Item9=_NOT_KOLCtrlWrapper_
+Item10=KOL_MCK
+Item11=KOL_MCK;USE_MHTOOLTIP
+Item12=KOL_MCK;USE_MHTOOLTIPS
+[HistoryLists\hlUnitAliases]
+Count=2
+Item0=WinTypes=Windows;WinProcs=Windows;DbiTypes=BDE;DbiProcs=BDE;DbiErrs=BDE;
+Item1=Classes=;mirror=
+[HistoryLists\hlSearchPath]
+Count=2
+Item0=D:\KOL;D:\KOL\Components\KOLTracker;D:\KOL\Components\DatePicker
+Item1=c:\kol\sysD6
+[HistoryLists\hlUnitOutputDirectory]
+Count=1
+Item0=D:\KOL
