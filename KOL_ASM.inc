@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 // KOL_ASM.inc (to inlude in KOL.pas)
-// v 3.16
+// v 3.17
 
 function MsgBox( const S: KOLString; Flags: DWORD ): DWORD;
 asm
@@ -5570,6 +5570,7 @@ asm
         CALL     IsWindow
         TEST     EAX, EAX
         JZ       @@destroy2
+        (* -- moved to WM_NCDESTROY handler - VK + Alexey Kirov
         {$IFDEF USE_PROP}
         PUSH     offset[ID_SELF] //* Remarked By M.Gerasimov
         PUSH     [EBX].fHandle   //* unremarked to prevent problems with progress bar
@@ -5580,6 +5581,7 @@ asm
         PUSH     [EBX].fHandle
         CALL     SetWindowLong
         {$ENDIF}
+        *)
         {$IFDEF  USE_fNCDestroyed}
         CMP      [EBX].fNCDestroyed, 0
         JNZ      @@destroy2
@@ -5885,8 +5887,17 @@ asm     //cmd    //opd
         JMP      @@calldef
 //********************************************************** Added By M.Gerasimov
 @@chk_WM_DESTROY:
+        {$IFnDEF SMALLER_CODE}
+        MOV      EDX, [EDI].TMsg.hWnd
+        {$ENDIF  SMALLER_CODE}
         CMP      AX, WM_DESTROY
         JNE      @@chk_WM_NCDESTROY
+
+        {$IFnDEF SMALLER_CODE}
+        CMP      EDX, [ESI].TControl.fHandle
+        JNE      @@chk_WM_NCDESTROY
+        {$ENDIF  SMALLER_CODE}
+
         {$IFDEF  USE_FLAGS}
         OR       [ESI].TControl.fFlagsG2, (1 shl G2_BeginDestroying)
         {$ELSE}
@@ -5895,10 +5906,14 @@ asm     //cmd    //opd
         JMP      @@calldef
 //**********************************************************
 @@chk_WM_NCDESTROY:
-        //CMP      word ptr [EDI].TMsg.message, WM_NCDESTROY
         CMP      AX, WM_NCDESTROY
         JNE      @@chk_WM_SIZE // @@chk_CM_RELEASE
 //********************************************************** Added By M.Gerasimov
+        {$IFnDEF SMALLER_CODE}
+        CMP      EDX, [ESI].TControl.fHandle
+        JNE      @@chk_WM_SIZE
+        {$ENDIF  SMALLER_CODE}
+
         {$IFDEF USE_PROP}
         PUSH     offset[ID_SELF]
         PUSH     [ESI].fHandle
@@ -5909,8 +5924,8 @@ asm     //cmd    //opd
         PUSH     [ESI].fHandle
         CALL     SetWindowLong
         {$ENDIF}
+        JMP      @@calldef
 //**********************************************************
-
 @@return0:
         XOR      EAX, EAX
         JMP      @@exit // WM_NCDESTROY and CM_RELEASE
@@ -5928,7 +5943,7 @@ asm     //cmd    //opd
 @@callonmes:
         {$IFDEF  NIL_EVENTS}
         TEST     EBX, EBX
-        JZ       @@ret 
+        JZ       @@ret
         {$ENDIF}
 @@onmess1:
         PUSH     0
