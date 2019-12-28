@@ -26,6 +26,7 @@
   TKOLMDIClient = PControl;
   TKOLMDIChild = Pointer;
   TKOLService = Pointer;
+  TBringFront = Pointer;
 
   TKOLButton = PControl;
   TKOLLabel = PControl;

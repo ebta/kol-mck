@@ -14,7 +14,7 @@
   Key Objects Library (C) 2000 by Vladimir Kladov.
 
 ****************************************************************
-* VERSION 3.1415926535897
+* VERSION 3.15
 ****************************************************************
 
   K.O.L. - is a set of objects and functions to create small programs
@@ -14270,7 +14270,7 @@ function CrackStack_MapInFile( const MapFileName: KOLString; Max_length: Integer
 //......... these declarations are here to stop hints from Delphi5 while compiling MCK:
 function CallTControlCreateWindow( Ctl: PControl ): Boolean;
 function DumpWindowed( c: PControl ): PControl;
-function WndProcAppAsm( Self_: PControl; var Msg: TMsg; var Rslt: Integer ): Boolean; forward;
+function WndProcAppAsm( Self_: PControl; var Msg: TMsg; var Rslt: Integer ): Boolean;
 //22{$IFDEF ASM_VERSION}
 const ButtonClass: array[ 0..6 ] of KOLChar = ( 'B','U','T','T','O','N',#0 );
 //22{$ENDIF ASM_VERSION}
@@ -14803,6 +14803,8 @@ asm
         TEST     EAX, EAX
         JNZ      @@exit
         MOV      EAX, offset[EmptyString]
+        //LEA      EAX, [EmptyString]
+        //MOV      EAX, [EmptyString]
 @@exit:
 end;
 
@@ -25466,14 +25468,15 @@ var h12, hAM: Boolean;
   function GetMonth( const fmt: KOLString; var S: PKOLChar ): Integer;
   var SD: TSystemTime;
       M: Integer;
-      C, MonthStr: KOLString;
+      MonthStr: KOLString;
   begin
     GetSystemTime( SD );
+    SD.wDay := 1;
     for M := 1 to 12 do
     begin
       SD.wMonth := M;
-      C := SystemDate2Str( SD, LOCALE_USER_DEFAULT, dfLongDate, PKOLChar( fmt + '/dd/yyyy/' ) );
-      MonthStr := Parse( C, '/' );
+      MonthStr := SystemDate2Str( SD, LOCALE_USER_DEFAULT, dfLongDate, PKOLChar( fmt {+ '/dd/yyyy/'} ) );
+      //MonthStr := Parse( C, '/' ); //++ -- by GMax
       if AnsiCompareStrNoCase( MonthStr, Copy( S, 1, Length( MonthStr ) ) ) = 0 then
       begin
         Inc( S, Length( MonthStr ) );
@@ -32646,7 +32649,8 @@ begin
         Form := Form.Parent;
       Form := Form.ParentForm;
       if (Form <> nil) and (Form.MDIClient <> nil) then
-        Result := TranslateMDISysAccel( Form.MDIClient.fHandle, Msg );
+        Result := TranslateMDISysAccel( Form.MDIClient.fHandle,
+            Windows.TMsg(Msg) );
     end;
   end;
 end;

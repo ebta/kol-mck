@@ -3,6 +3,12 @@
   -- included in KOL.pas --
 *******************************************************************************}
 
+{$IFNDEF FPC}
+{$IFNDEF TMSG_WINDOWS}
+         {$DEFINE TMSG_DECODED}
+{$ENDIF}
+{$ENDIF}
+{$IFDEF TMSG_DECODED}
 {$I MsgDecode.pas}
 type
     TMsg = packed record
@@ -20,6 +26,7 @@ type
     end;
 
     tagMSG = TMsg;
+{$ENDIF TMSG_DECODED}
 
 
 ////////////////////////////////////////////////////////////////////////////

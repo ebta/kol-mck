@@ -19,7 +19,7 @@ mmmmm      mmmmm     mmmmm     cccccccccccc       kkkkk     kkkkk
   Key Objects Library (C) 1999 by Kladov Vladimir.
   KOL Mirror Classes Kit (C) 2000 by Kladov Vladimir.
 ********************************************************
-* VERSION 3.1415926
+* VERSION 3.1415926535897
 ********************************************************
 }                     
 unit mirror;
@@ -2290,6 +2290,7 @@ type
     //
     // Функция, которая инициализацию части свойств выполняет в виде
     // последовательности вызовов "прозрачных" методов (см. описание KOL)
+    function ParentBorder: Integer;
     function GenerateTransparentInits: String; virtual;
     function P_GenerateTransparentInits: String; virtual;
 
@@ -5413,7 +5414,9 @@ begin
     S := S + '.MouseTransparent';
   if LikeSpeedButton then
     S := S + '.LikeSpeedButton';
-  if  Border <> DefaultBorder then
+  if  (Border <> DefaultBorder) or
+      (Border = DefaultBorder) and
+      (ParentBorder >= 0) and (ParentBorder <> Border) then
       S := S + '.SetBorder( ' + IntToStr( Border ) + ')';
   Result := Trim( S );
 
@@ -10479,6 +10482,23 @@ begin
     Result := 2;
 end;
 
+function TKOLCustomControl.ParentBorder: Integer;
+var C: TWinControl;
+begin
+    Result := -1;
+    C := Parent;
+    if  C <> nil then
+    begin
+        if  C is TKOLCustomControl then
+            Result := (C as TKOLCustomControl).Border
+        else if  C is TCustomForm then
+        begin
+            if  ParentKOLForm <> nil then
+                Result := ParentKOLForm.Border;
+        end;
+    end;
+end;
+
 { TKOLApplet }
 
 procedure TKOLApplet.AssignEvents(SL: TStringList; const AName: String);
@@ -11918,7 +11938,7 @@ end;
 // настроенный в design-time на форме MCK-проекта. Устанавливаются все публичные
 // свойства, отличающиеся своим значением от тех, которые назначаются по умолчанию
 // в конструкторе объекта.
-procedure ConstructComponent( SL: TStringList; C: TComponent );
+function ConstructComponent( SL: TStringList; C: TComponent ): Boolean;
 var Props, PropsD: PPropList;
     NProps, NPropsD, I, J: Integer;
     PropName, PropValue, PropValueD: String;
@@ -11932,6 +11952,7 @@ begin
     DB 'ConstructComponent', 0
   @@e_signature:
   end;
+  Result := FALSE;
   //SL.Add( '    Result.' + C.Name + ' := ' + C.ClassName + '.Create( nil );' );
   if C is TOleControl then
     SL.Add( '    Result.' + C.Name +
@@ -11942,6 +11963,11 @@ begin
   try
   try
     NProps := GetPropList( C.ClassInfo, tkAny, Props );
+    for I := 0 to NProps-1 do
+    begin
+        if  Props[I].Name = 'NotConstruct_KOLMCK' then
+            Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+    end;
     SL.Add( '    //-- found ' + IntToStr( NProps ) + ' published props' );
     if NProps > 0 then
     BEGIN
@@ -11995,11 +12021,13 @@ begin
     END;
   finally
     FreeMem( Props );
+    FreeMem( PropsD );
     D.Free;
   end;
   except
     SL.Add( '    //-----^------Exception while getting properties of ' + C.Name );
   end;
+  Result := TRUE;
 end;
 
 procedure TKOLForm.GenerateChildren( SL: TStringList; OfParent: TComponent; const OfParentName: String; const Prefix: String;
@@ -12658,9 +12686,10 @@ begin
           if TComponent( oc[ I ] ) is TComponent then // ай-я-яй!
           begin
             SL.Add( '' );
-            ConstructComponent( SL, oc[ I ] );
-            GenerateAdd2AutoFree( SL, 'Result.' + TComponent( oc[ I ] ).Name + '.Free',
-              FALSE, 'Add2AutoFreeEx', nil );
+            if  ConstructComponent( SL, oc[ I ] ) then
+                GenerateAdd2AutoFree( SL, 'Result.' +
+                    TComponent( oc[ I ] ).Name + '.Free',
+                    FALSE, 'Add2AutoFreeEx', nil );
           end;
         end;
 
@@ -13073,11 +13102,17 @@ begin
           RptDetailed( 'tagmsg found in line ' + Int2Str(I+1), CYAN );
           for J := Length(S)-5 downto 1 do
           begin
-              if  StrLComp_NoCase( PChar(@S[J]), 'tagmsg', 6 ) = 0 then
+              if  AnsiCompareText( Copy(S, J, 6), 'tagmsg' ) = 0 then
               begin
+                  {$IFDEF _D2009orHigher}
+                  if  ( (J = 1) or not CharInSet(S[J-1], ['A'..'Z','a'..'z','_']) )
+                  and ( (J = Length(S)-5) or not CharInSet(S[J+6],
+                      ['0'..'9','A'..'Z','a'..'z','_']) ) then
+                  {$ELSE}
                   if  ( (J = 1) or not(S[J-1] in ['A'..'Z','a'..'z','_']) )
                   and ( (J = Length(S)-5) or not(S[J+6] in
                       ['0'..'9','A'..'Z','a'..'z','_']) ) then
+                  {$ENDIF}
                   begin
                        RptDetailed( 'tagmsg replaced with TMsg in line ' + Int2Str(I+1), CYAN );
                        S := Copy( S, 1, J-1 ) + 'TMsg' + Copy( S, J+6, MaxInt );
@@ -15270,7 +15305,7 @@ begin
       end;
   end;
 
-  if  Border <> 2 then
+  if  (Border <> 2) then
       if  FormCompact then
       begin
           if  Border = 1 then
@@ -18277,6 +18312,9 @@ begin
                     end;}
 
                     inc( FormFunArrayIdx );
+                    Rpt( 'Adding Result.Form.FormExecuteCommands( @ Result.Form, ' +
+                        '@ FormControlsArray' + IntToStr( FormFunArrayIdx ) + '[0]);' +
+                        '// flush: ' + IntToStr( FormIndexFlush ), RED );
                     SL.Add( '    Result.Form.FormExecuteCommands( @ Result.Form, ' +
                         '@ FormControlsArray' + IntToStr( FormFunArrayIdx ) + '[0]);' +
                         '// flush: ' + IntToStr( FormIndexFlush ) );
@@ -18311,6 +18349,9 @@ begin
                         AL.Free;
                     END;
 
+                end else
+                begin
+                    Rpt( 'not FileExists: ' + s, RED );
                 end;
 
                 {if  CL.Count = 0 then
