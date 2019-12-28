@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 // KOL_ASM.inc (to inlude in KOL.pas)
-// v 3.20
+// v 3.210
 
 function MsgBox( const S: KOLString; Flags: DWORD ): DWORD;
 asm
@@ -3009,7 +3009,11 @@ asm
         CALL     Clear
         LEA      EAX, [EBX].FPath
         {$IFDEF UNICODE_CTRLS}
-        CALL     System.@WStrClr
+            {$IFDEF USTR_}
+            CALL     System.@UStrClr
+            {$ELSE}
+            CALL     System.@WStrClr
+            {$ENDIF}
         {$ELSE}
         CALL     System.@LStrClr
         {$ENDIF}
@@ -3127,15 +3131,23 @@ asm     //cmd    //opd
         PUSH     EDX
         LEA      EAX, [EAX].fSection
         {$IFDEF UNICODE_CTRLS}
-        CALL     System.@WStrClr
+            {$IFDEF USTR_}
+            CALL     System.@UStrClr
+            {$ELSE}
+            CALL     System.@WStrClr
+            {$ENDIF}
         {$ELSE}
-        CALL     System.@LStrClr
+            CALL     System.@LStrClr
         {$ENDIF}
         POP      EAX
         {$IFDEF UNICODE_CTRLS}
-        CALL     System.@WStrClr
+            {$IFDEF USTR_}
+            CALL     System.@UStrClr
+            {$ELSE}
+            CALL     System.@WStrClr
+            {$ENDIF}
         {$ELSE}
-        CALL     System.@LStrClr
+            CALL     System.@LStrClr
         {$ENDIF}
         POP      EAX
         CALL     TObj.Destroy
@@ -5664,9 +5676,13 @@ asm
 
         LEA      EAX, [EBX].fCaption
         {$IFDEF UNICODE_CTRLS}
-        CALL     System.@WStrClr
+            {$IFDEF USTR_}
+            CALL     System.@UStrClr
+            {$ELSE}
+            CALL     System.@WStrClr
+            {$ENDIF}
         {$ELSE}
-        CALL     System.@LStrClr
+            CALL     System.@LStrClr
         {$ENDIF}
         XCHG     EAX, EBX
         CALL     TObj.Destroy
@@ -6404,14 +6420,18 @@ asm
         XCHG    EBX, EAX
         LEA     EAX, [EBX].fCaption
         {$IFDEF UNICODE_CTRLS}
-        CALL    System.@WStrAsg
+            {$IFDEF UStr_}
+            CALL    System.@UStrAsg
+            {$ELSE}
+            CALL    System.@WStrAsg
+            {$ENDIF}
         {$ELSE}
-        CALL    System.@LStrAsg
+            CALL    System.@LStrAsg
         {$ENDIF}
 
         MOV     ECX, [EBX].fHandle
         JECXZ   @@0
-        PUSH    [EBX].TControl.fCaption
+        PUSH    [EBX].TControl.fCaption //? System.@UStrToPWChar ?
         PUSH    0
         PUSH    WM_SETTEXT
         PUSH    ECX
@@ -9654,9 +9674,13 @@ asm
           CALL     TObj.RefDec
 @@fin:  LEA      EAX, [EBX].FTooltip
         {$IFDEF UNICODE_CTRLS}
-        CALL     System.@WStrClr
+            {$IFDEF USTR_}
+            CALL     System.@UStrClr
+            {$ELSE}
+            CALL     System.@WStrClr
+            {$ENDIF}
         {$ELSE}
-        CALL     System.@LStrClr
+            CALL     System.@LStrClr
         {$ENDIF}
         XCHG     EAX, EBX
         CALL     TObj.Destroy
@@ -10825,9 +10849,13 @@ asm     //cmd    //opd
         LEA      EAX, [EAX].FTitle
 @@loo:
         {$IFDEF UNICODE_CTRLS}
-        CALL     System.@WStrClr
+            {$IFDEF USTR_}
+            CALL     System.@UStrClr
+            {$ELSE}
+            CALL     System.@WStrClr
+            {$ENDIF}
         {$ELSE}
-        CALL     System.@LStrClr
+            CALL     System.@LStrClr
         {$ENDIF}
         POP      EAX
         TEST     EAX, EAX
@@ -10847,9 +10875,13 @@ asm     //cmd    //opd
         LEA      EAX, [EAX].FStatusText
 @@loo:
         {$IFDEF UNICODE_CTRLS}
-        CALL     System.@WStrClr
+            {$IFDEF USTR_}
+            CALL     System.@UStrClr
+            {$ELSE}
+            CALL     System.@WStrClr
+            {$ENDIF}
         {$ELSE}
-        CALL     System.@LStrClr
+            CALL     System.@LStrClr
         {$ENDIF}
         POP      EAX
         TEST     EAX, EAX
@@ -11019,9 +11051,9 @@ asm
         CALL     TControl.Add2AutoFree
         {$ENDIF}
         {$IFDEF UNICODE_CTRLS}
-        CALL     NewWStrList
+            CALL     NewWStrList
         {$ELSE}
-        CALL     NewStrList
+            CALL     NewStrList
         {$ENDIF}
         MOV      [EBX].DF.fTBttTxt, EAX
         {$IFDEF USE_AUTOFREE4CONTROLS}
@@ -11041,11 +11073,15 @@ asm
         MOV      EDX, EAX
         MOV      EAX, ESP
         {$IFDEF UNICODE_CTRLS}
-        CALL     System.@WStrFromPWChar
+        {$IFDEF UStr_}
+        CALL     System.@UStrFromPWChar
         {$ELSE}
-        {$IFDEF _D2009orHigher}
-        XOR      ECX, ECX // TODO: safe?
+        CALL     System.@WStrFromPWChar
         {$ENDIF}
+        {$ELSE}
+            {$IFDEF _D2009orHigher}
+            XOR      ECX, ECX // TODO: safe?
+            {$ENDIF}
         CALL     System.@LStrFromPChar
         {$ENDIF}
 

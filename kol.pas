@@ -14,7 +14,7 @@
   Key Objects Library (C) 2000 by Vladimir Kladov.
 
 ****************************************************************
-* VERSION 3.20
+* VERSION 3.210
 ****************************************************************
 
   K.O.L. - is a set of objects and functions to create small programs
@@ -534,6 +534,11 @@ unit KOL;
 // for Delphi3 only, then restore the comment mark!!!!!!!!!!!!!!!!!!!!
 //______________________________________________________________________________
 
+{$IFDEF PUREPASCAL}
+        {$DEFINE PAS_VERSION}
+        {$DEFINE PAS_ONLY}
+{$ENDIF}
+
 {$IFDEF INPACKAGE} // use this symbol in packages requiring kol.pas
   {$WARNINGS OFF}
   //{$DEFINE NOT_USE_AUTOFREE4CONTROLS}
@@ -548,6 +553,12 @@ unit KOL;
   {$WARN UNSAFE_TYPE OFF} // Too many such warnings in Delphi7
   {$WARN UNSAFE_CODE OFF}
   {$WARN UNSAFE_CAST OFF}
+{$ENDIF}
+
+{$IFDEF UNICODE_CTRLS}
+    {$IFDEF _D2009orHigher}
+        {$DEFINE UStr_} // use functions @UStrXXXX instead of @WStrXXXX
+    {$ENDIF}
 {$ENDIF}
 
 interface
@@ -10027,7 +10038,7 @@ type
   PHHNNotify = ^THHNNotify;
   tagHHN_NOTIFY = packed record
     hdr:    TNMHdr;
-    pszUrl: PAnsiChar;              //PCSTR: Multi-byte, null-terminated string
+    pszUrl: PAnsiChar;          //PCSTR: Multi-byte, null-terminated string
   end;
   HHN_NOTIFY = tagHHN_NOTIFY;
   THHNNotify = tagHHN_NOTIFY;
@@ -10038,12 +10049,12 @@ type
     cbStruct:      Integer;     // sizeof this structure
     hinst:         HINST;       // instance handle for string resource
     idString:      cardinal;    // string resource id, or text id if pszFile is specified in HtmlHelp call
-    pszText:       PAnsiChar;       // used if idString is zero
+    pszText:       PAnsiChar;   // used if idString is zero
     pt:            TPOINT;      // top center of popup window
     clrForeground: COLORREF;    // use -1 for default
     clrBackground: COLORREF;    // use -1 for default
     rcMargins:     TRect;       // amount of space between edges of window and text, -1 for each member to ignore
-    pszFont:       PAnsiChar;       // facename, point size, char set, BOLD ITALIC UNDERLINE
+    pszFont:       PAnsiChar;   // facename, point size, char set, BOLD ITALIC UNDERLINE
   end;
   HH_POPUP = tagHH_POPUP;
   THHPopup = tagHH_POPUP;
@@ -10053,11 +10064,11 @@ type
   tagHH_AKLINK = packed record
     cbStruct:      integer;     // sizeof this structure
     fReserved:     BOOL;        // must be FALSE (really!)
-    pszKeywords:   PAnsiChar;       // semi-colon separated keywords
-    pszUrl:        PAnsiChar;       // URL to jump to if no keywords found (may be NULL)
-    pszMsgText:    PAnsiChar;       // Message text to display in MessageBox if pszUrl is NULL and no keyword match
-    pszMsgTitle:   PAnsiChar;       // Message text to display in MessageBox if pszUrl is NULL and no keyword match
-    pszWindow:     PAnsiChar;       // Window to display URL in
+    pszKeywords:   PAnsiChar;   // semi-colon separated keywords
+    pszUrl:        PAnsiChar;   // URL to jump to if no keywords found (may be NULL)
+    pszMsgText:    PAnsiChar;   // Message text to display in MessageBox if pszUrl is NULL and no keyword match
+    pszMsgTitle:   PAnsiChar;   // Message text to display in MessageBox if pszUrl is NULL and no keyword match
+    pszWindow:     PAnsiChar;   // Window to display URL in
     fIndexOnFail:  BOOL;        // Displays index if keyword lookup fails.
   end;
   HH_AKLINK = tagHH_AKLINK;
@@ -10079,7 +10090,7 @@ const
 
 type
   PHHEnumIT = ^THHEnumIT;
-  tagHH_ENUM_IT = packed record                  //tagHH_ENUM_IT, HH_ENUM_IT, *PHH_ENUM_IT
+  tagHH_ENUM_IT = packed record      //tagHH_ENUM_IT, HH_ENUM_IT, *PHH_ENUM_IT
     cbStruct:           Integer;     // size of this structure
     iType:              Integer;     // the type of the information type ie. Inclusive, Exclusive, or Hidden
     pszCatName:         PAnsiChar;   // Set to the name of the Category to enumerate the info types in a category; else NULL
@@ -10090,7 +10101,7 @@ type
 
 type
   PHHEnumCat = ^THHEnumCat;
-  tagHH_ENUM_CAT = packed record                 //tagHH_ENUM_CAT, HH_ENUM_CAT, *PHH_ENUM_CAT
+  tagHH_ENUM_CAT = packed record     //tagHH_ENUM_CAT, HH_ENUM_CAT, *PHH_ENUM_CAT
     cbStruct:           Integer;     // size of this structure
     pszCatName:         PAnsiChar;   // volitile pointer to the category name
     pszCatDescription:  PAnsiChar;   // volitile pointer to the category description
@@ -10099,7 +10110,7 @@ type
 
 type
   PHHSetInfoType = ^THHSetInfoType;
-  tagHH_SET_INFOTYPE = packed record             //tagHH_SET_INFOTYPE, HH_SET_INFOTYPE, *PHH_SET_INFOTYPE
+  tagHH_SET_INFOTYPE = packed record //tagHH_SET_INFOTYPE, HH_SET_INFOTYPE, *PHH_SET_INFOTYPE
     cbStruct:           Integer;     // the size of this structure
     pszCatName:         PAnsiChar;   // the name of the category, if any, the InfoType is a member of.
     pszInfoTypeName:    PAnsiChar;   // the name of the info type to add to the filter
@@ -10138,15 +10149,15 @@ const
 type
   {** Used by command HH_DISPLAY_SEARCH}
   PHHFtsQuery = ^THHFtsQuery;
-  tagHH_FTS_QUERY = packed record          //tagHH_FTS_QUERY, HH_FTS_QUERY
+  tagHH_FTS_QUERY = packed record    //tagHH_FTS_QUERY, HH_FTS_QUERY
     cbStruct:          integer;      // Sizeof structure in bytes.
     fUniCodeStrings:   BOOL;         // TRUE if all strings are unicode.
-    pszSearchQuery:    PAnsiChar;        // String containing the search query.
+    pszSearchQuery:    PAnsiChar;    // String containing the search query.
     iProximity:        LongInt;      // Word proximity.
     fStemmedSearch:    Bool;         // TRUE for StemmedSearch only.
     fTitleOnly:        Bool;         // TRUE for Title search only.
     fExecute:          Bool;         // TRUE to initiate the search.
-    pszWindow:         PAnsiChar;        // Window to display in
+    pszWindow:         PAnsiChar;    // Window to display in
   end;
   THHFtsQuery = tagHH_FTS_QUERY;
 
@@ -10155,14 +10166,14 @@ type
 type
   {** Used by commands HH_GET_WIN_TYPE, HH_SET_WIN_TYPE}
   PHHWinType = ^THHWinType;
-  tagHH_WINTYPE = packed record             //tagHH_WINTYPE, HH_WINTYPE, *PHH_WINTYPE;
+  tagHH_WINTYPE = packed record      // tagHH_WINTYPE, HH_WINTYPE, *PHH_WINTYPE;
     cbStruct:          Integer;      // IN: size of this structure including all Information Types
     fUniCodeStrings:   BOOL;         // IN/OUT: TRUE if all strings are in UNICODE
-    pszType:           PAnsiChar;        // IN/OUT: Name of a type of window
+    pszType:           PAnsiChar;    // IN/OUT: Name of a type of window
     fsValidMembers:    DWORD;        // IN: Bit flag of valid members (HHWIN_PARAM_)
     fsWinProperties:   DWORD;        // IN/OUT: Properties/attributes of the window (HHWIN_)
 
-    pszCaption:        PAnsiChar;        // IN/OUT: Window title
+    pszCaption:        PAnsiChar;    // IN/OUT: Window title
     dwStyles:          DWORD;        // IN/OUT: Window styles
     dwExStyles:        DWORD;        // IN/OUT: Extended Window styles
     rcWindowPos:       TRect;        // IN: Starting position, OUT: current position
@@ -10181,25 +10192,25 @@ type
     iNavWidth:         Integer;      // IN/OUT: width of navigation window
     rcHTML:            TRect;        // OUT: HTML window coordinates
 
-    pszToc:            PAnsiChar;        // IN: Location of the table of contents file
-    pszIndex:          PAnsiChar;        // IN: Location of the index file
-    pszFile:           PAnsiChar;        // IN: Default location of the html file
-    pszHome:           PAnsiChar;        // IN/OUT: html file to display when Home button is clicked
+    pszToc:            PAnsiChar;    // IN: Location of the table of contents file
+    pszIndex:          PAnsiChar;    // IN: Location of the index file
+    pszFile:           PAnsiChar;    // IN: Default location of the html file
+    pszHome:           PAnsiChar;    // IN/OUT: html file to display when Home button is clicked
     fsToolBarFlags:    DWORD;        // IN: flags controling the appearance of the toolbar (HHWIN_BUTTON_)
     fNotExpanded:      BOOL;         // IN: TRUE/FALSE to contract or expand, OUT: current state
     curNavType:        Integer;      // IN/OUT: UI to display in the navigational pane
     tabpos:            Integer;      // IN/OUT: HHWIN_NAVTAB_TOP, HHWIN_NAVTAB_LEFT, or HHWIN_NAVTAB_BOTTOM
     idNotify:          Integer;      // IN: ID to use for WM_NOTIFY messages
     tabOrder: packed array[0..HH_MAX_TABS] of Byte;  // IN/OUT: tab order: Contents, Index, Search, History, Favorites, Reserved 1-5, Custom tabs
-    cHistory:          Integer;       // IN/OUT: number of history items to keep (default is 30)
-    pszJump1:          PAnsiChar;         // Text for HHWIN_BUTTON_JUMP1
-    pszJump2:          PAnsiChar;         // Text for HHWIN_BUTTON_JUMP2
-    pszUrlJump1:       PAnsiChar;         // URL for HHWIN_BUTTON_JUMP1
-    pszUrlJump2:       PAnsiChar;         // URL for HHWIN_BUTTON_JUMP2
-    rcMinSize:         TRect;         // Minimum size for window (ignored in version 1)
+    cHistory:          Integer;      // IN/OUT: number of history items to keep (default is 30)
+    pszJump1:          PAnsiChar;    // Text for HHWIN_BUTTON_JUMP1
+    pszJump2:          PAnsiChar;    // Text for HHWIN_BUTTON_JUMP2
+    pszUrlJump1:       PAnsiChar;    // URL for HHWIN_BUTTON_JUMP1
+    pszUrlJump2:       PAnsiChar;    // URL for HHWIN_BUTTON_JUMP2
+    rcMinSize:         TRect;        // Minimum size for window (ignored in version 1)
 
-    cbInfoTypes:       Integer;       // size of paInfoTypes;
-    pszCustomTabs:     PAnsiChar;         // multiple zero-terminated strings
+    cbInfoTypes:       Integer;      // size of paInfoTypes;
+    pszCustomTabs:     PAnsiChar;    // multiple zero-terminated strings
   end;
   HH_WINTYPE = tagHH_WINTYPE;
   THHWinType = tagHH_WINTYPE;
@@ -10237,7 +10248,7 @@ type
   PHHNTrack = ^THHNTrack;
   tagHHNTRACK = packed record                  //tagHHNTRACK, HHNTRACK;
     hdr:               TNMHdr;
-    pszCurUrl:         PAnsiChar;                  // Multi-byte, null-terminated string  
+    pszCurUrl:         PAnsiChar;              // Multi-byte, null-terminated string
     idAction:          Integer;                // HHACT_ value
     phhWinType:        PHHWinType;             // Current window type structure
   end;
@@ -11454,11 +11465,11 @@ function InsertSeparators( const s: KOLString; chars_between: Integer;
 {* Inserts given Separator between symbols in s, separating each portion of
    chars_between characters with a Separator starting from right side. See also:
    Int2Ths function. }
-function oem2char(const s: String): String;
+function oem2char(const s: AnsiString): AnsiString;
 {* Converts string from OEM to ANSI. }
-function ansi2oem(const s: String): String;
+function ansi2oem(const s: AnsiString): AnsiString;
 {* Converts ANSI string to OEM}
-function smartOem2ansiRus(const s: String): String;
+function smartOem2ansiRus(const s: AnsiString): AnsiString;
 {* Smartly converts string from OEM to ANSI (only Russian!). See code. }
 {$IFDEF WIN}
 {$IFNDEF _FPC}
@@ -13405,6 +13416,9 @@ function ForceSetForegroundWindow: Integer;
    SPI_SETFOREGROUNDLOCKTIMEOUT to 0, returning previus value got by
    SPI_GETFOREGROUNDLOCKTIMEOUT. If failed, -1 is returned }
 
+var TimeWaitFocus: Byte = 10;
+{* Delay time while passing keys using Stroke2Window and Stroke2WindowEx. }
+
 function Stroke2Window( Wnd: HWnd; const S: AnsiString ): Boolean;
 {* Posts characters from string S to those child window of Wnd, which
    has focus now (top-level window Wnd must be foreground, and have
@@ -14965,7 +14979,13 @@ asm     { <- [ESP+4] = string to remove
         XCHG     EAX, [ESP]
         PUSH     EAX
         MOV      EAX, ESP
-        CALL     System.@WStrClr
+        {$IFDEF  UNICODE_CTRLS}
+            {$IFDEF UStr_}
+                    CALL     System.@UStrClr
+            {$ELSE}
+                    CALL     System.@WStrClr
+            {$ENDIF}
+        {$ENDIF}
         POP      EAX
 end;
 {$ENDIF _D3orHigher}
@@ -15463,7 +15483,7 @@ begin
 end;
 
 function ShowMsgCentered( Ctl: PControl; const S: KOLString; Flags: DWORD ): DWORD;
-var Title: Pchar;
+var Title: PKOLchar;
 begin
     Ctl2CenterMsgBox := Ctl;
     Ctl.AttachProc(WndProcCenterMsgBox);
@@ -20851,20 +20871,20 @@ begin
 end;
 {$ENDIF PAS_VERSION}
 
-function oem2char(const s: String): String;
+function oem2char(const s: AnsiString): AnsiString;
 begin
-    SetString(Result, PChar(s), Length(s));
-    OemToCharBuff(Pchar(s), PChar(Result), Length(Result));
+    SetString(Result, PAnsiChar(s), Length(s));
+    OemToCharBuffA(PAnsichar(s), PAnsiChar(Result), Length(Result));
 end;
 
-function ansi2oem(const s: String): String;
+function ansi2oem(const s: AnsiString): AnsiString;
 begin
-    SetString(Result, PChar(s), Length(s));
-    AnsiToOemBuff(Pchar(s), PChar(Result), Length(Result));
+    SetString(Result, PAnsiChar(s), Length(s));
+    AnsiToOemBuff(PAnsichar(s), PAnsiChar(Result), Length(Result));
 end;
 
-function smartOem2ansiRus(const s: String): String;
-    function good(const x, y: String): Boolean;
+function smartOem2ansiRus(const s: AnsiString): AnsiString;
+    function good(const x, y: AnsiString): Boolean;
     var i: Integer;
     begin
         Result := FALSE;
@@ -22135,12 +22155,15 @@ end;
 {$ENDIF notUNICODE_CTRLS}
 {$ELSE  ASM_VERSION}
 function StrRepeat( const S: KOLString; Count: Integer ): KOLString;
-var I, L: Integer;
+var I{, L}: Integer;
 begin
-  L := Length( S );
+  {L := Length( S );
   SetLength( Result, L * Count );
   for I := 0 to Count-1 do
-      Move( S[ 1 ], Result[ 1 + I * L * Sizeof(KOLChar) ], L );
+      Move( S[ 1 ], Result[ 1 + I * L * Sizeof(KOLChar) ], L );}
+  Result := S;
+  for I := 2 to Count do
+      Result := Result + S;
 end;
 {$ENDIF PAS_VERSION}
 
@@ -23237,10 +23260,15 @@ procedure LogFileOutput( const filepath, str: KOLString );
 var F: THandle;
     Tmp: KOLString;
 begin
+  Tmp := '';
+  {$IFDEF UNICODE_CTRLS}
+  if not FileExists(filepath) and (Sizeof(KOLChar) = Sizeof(WideChar)) then
+      Tmp := KOLString( WideString( '' + #$FEFF ) );
+  {$ENDIF}
   F := FileCreate( filepath, ofOpenWrite or ofOpenAlways or ofShareDenyWrite );
   if F = INVALID_HANDLE_VALUE then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
   FileSeek( F, 0, spEnd );
-  Tmp := str + {$IFDEF LIN} #10 {$ELSE} #13#10 {$ENDIF};
+  Tmp := Tmp + str + {$IFDEF LIN} #10 {$ELSE} #13#10 {$ENDIF};
   FileWrite( F, PKOLChar( Tmp )^, Length( Tmp ) * Sizeof(KOLChar) );
   FileClose( F );
 end;
@@ -28458,7 +28486,7 @@ begin
                    if WTSQuerySessionInformation(0 {WTS_CURRENT_SERVER_HANDLE},
                       p.SessionId, WTSUserName, Pointer(pBuf), BufSize) then
                    begin
-                      if  Trim( pBuf ) <> '' then
+                      if  {Trim( pBuf ) <> ''} pBuf <> '' then
                           Result.Add(pBuf);
                       WTSFreeMemory(pBuf);
                    end;
@@ -34925,7 +34953,11 @@ asm
           PUSH  EDX
           PUSH  0
           MOV   EAX, ESP
+          {$IFDEF UStr_}
+          CALL  System.@UStrFromLStr
+          {$ELSE}
           CALL  System.@WStrFromLStr
+          {$ENDIF}
 
           MOV   ECX, ESI
           INC   ECX
@@ -34933,7 +34965,11 @@ asm
           PUSH  ESI
           REP   MOVSW
           MOV   EAX, ESP
+          {$IFDEF UStr_}
+          CALL  System.@UStrClr
+          {$ELSE}
           CALL  System.@WStrClr
+          {$ENDIF}
           POP   EAX
 @@exit_copy:
           MOV   EAX, ESP
@@ -35069,15 +35105,22 @@ asm
           PUSH  EDX
           PUSH  0
           MOV   EAX, ESP
+          {$IFDEF UStr_}
+          CALL  System.@UStrFromLStr
+          {$ELSE}
           CALL  System.@WStrFromLStr
-
+          {$ENDIF}
           MOV   ECX, ESI
           INC   ECX
           POP   ESI
           PUSH  ESI
           REP   MOVSW
           MOV   EAX, ESP
+          {$IFDEF UStr_}
+          CALL  System.@UStrClr
+          {$ELSE}
           CALL  System.@WStrClr
+          {$ENDIF}
           POP   EAX
 @@exit_copy:
           MOV   EAX, ESP
@@ -56878,7 +56921,7 @@ function WaitFocusedWndChild( Wnd: HWnd ): HWnd;
 var T1, T2: Integer;
     W: HWnd;
 begin
-  Sleep( 50 );
+  Sleep( TimeWaitFocus );
   T1 := GetTickCount;
   while True do
   begin
@@ -56892,7 +56935,7 @@ begin
     end;
     T2 := GetTickCount;
     if Abs( T1 - T2 ) > 100 then break;
-    Sleep(100);
+    Sleep(TimeWaitFocus);
     Applet.ProcessMessages;
   end;
   Result := Wnd;

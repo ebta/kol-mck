@@ -2,7 +2,7 @@ Mirror Classes Kit дл€ Key Objects Library, v2.89 [20 марта 2010г.]
 Copyright (C) 1999-2007 by Vladimir Kladov
 -------------------------------------------------
 ѕоддерживает Delphi 2, 3, 4, 5, 6, 7
-KOL совместима так же с Delphi 8, BDS 2005, 2006, 2010, Turbo-Delphi и с Free Pascal 1.0.5/2.x (MCK-проекты, изготовленные в Delphi, так же компилируютс€ с Free Pascal)
+KOL совместима так же с Delphi 8, BDS 2005, 2006, 2010, 2012(XE, XE2), Turbo-Delphi и с Free Pascal 1.0.5/2.x (MCK-проекты, изготовленные в Delphi, так же компилируютс€ с Free Pascal)
 KOL частично совместима с Kylix/FPC дл€ компил€ции под Linux с использованием Qt 
 
 ѕќ∆јЋ”…—“ј, ¬Ќ»ћј“≈Ћ№Ќќ ѕ–ќ„»“ј…“≈ ѕ–≈ƒ”ѕ–≈∆ƒ≈Ќ»я ¬  ќЌ÷≈ Ё“ќ√ќ ‘ј…Ћј!

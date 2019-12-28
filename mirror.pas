@@ -247,6 +247,7 @@ type
     FGeneratePCode: Boolean;
     FDefaultFont: TKOLFont;
     FFormCompactDisabled: Boolean;
+    FAutoCreateForms: String;
     function GetProjectName: String;
     procedure SetProjectDest(const Value: String);
 
@@ -282,6 +283,7 @@ type
     procedure setNewIf(const Value: Boolean);
     procedure SetDefaultFont(const Value: TKOLFont);
     procedure SetFormCompactDisabled(const Value: Boolean);
+    procedure SetAutoCreateForms(const Value: String);
   protected
     FLocked: Boolean;
     FNewIF: Boolean;
@@ -386,6 +388,7 @@ type
     property NewIF: Boolean read getNewIf write setNewIf;
     property DefaultFont: TKOLFont read FDefaultFont write SetDefaultFont;
     property FormCompactDisabled: Boolean read FFormCompactDisabled write SetFormCompactDisabled;
+    property AutoCreateForms: String read FAutoCreateForms write SetAutoCreateForms;
   end;
 
   TKOLProjectBuilder = class( TComponentEditor )
@@ -3002,8 +3005,8 @@ function Color2Str( Color: TColor ): String;
 
 procedure Log( const S: String );
 procedure LogOK ;
-procedure Rpt( const S: String; Color: Integer );
-procedure RptDetailed( const S: String; Color: Integer );
+procedure Rpt( const S: KOLString; Color: Integer );
+procedure RptDetailed( const S: KOLString; Color: Integer );
 procedure Rpt_Stack;
 
 function ProjectSourcePath: String;
@@ -3154,7 +3157,7 @@ end;
 {$STACKFRAMES ON}
 function GetCallStack: TStringList;
 var RegEBP: PDWORD;
-    RetAddr, MinSearchAddr, SrchPtr: PChar;
+    RetAddr, MinSearchAddr, SrchPtr: PAnsiChar;
     Found: Boolean;
 begin
   Result := TStringList.Create;
@@ -3365,7 +3368,7 @@ begin
   {$ENDIF}
 end;
 
-procedure Rpt( const S: String; Color: Integer );
+procedure Rpt( const S: KOLString; Color: Integer );
 begin
   asm
     jmp @@e_signature
@@ -3378,7 +3381,7 @@ begin
     KOLProject.Report( S, Color );
 end;
 
-procedure RptDetailed( const S: String; Color: Integer );
+procedure RptDetailed( const S: KOLString; Color: Integer );
 begin
   asm
     jmp @@e_signature
@@ -3400,7 +3403,7 @@ begin
   StrList := GetCallStack;
     TRY
       for I := 0 to StrList.Count-1 do
-        Rpt( StrList[ I ], LIGHT + BLUE );
+        Rpt( KOLString(StrList[ I ]), LIGHT + BLUE );
     FINALLY
   StrList.Free;
 end;
@@ -10680,7 +10683,8 @@ begin
   TRY
 
   //BuildKOLProject;
-  if (KOLProject <> nil) and not (KOLProject.FBuilding) then
+  if not (csLoading in ComponentState) and
+     (KOLProject <> nil) and not (KOLProject.FBuilding) then
     KOLProject.ConvertVCL2KOL( TRUE, FALSE );
 
   LogOK;
@@ -13801,13 +13805,19 @@ begin
   Log( '->TKOLForm.GenerateUnit' );
   try
   Result := False;
-  if not FChanged then Exit;
+  Log(Path);
+  if not FChanged then
+  begin
+     LogOK;
+     Exit;
+  end;
   FChanged := FALSE;
 
   //Rpt_Stack;
 
   if not FLocked then
   begin
+    Log('-1');
     for I := 0 to Owner.ComponentCount-1 do
     begin
       C := Owner.Components[ I ];
@@ -13822,6 +13832,7 @@ begin
       end;
     end;
 
+    Log('-2');
     fUniqueID := 5000;
     Rpt( '----------- UNIQUE ID = ' + IntToStr( fUniqueID ), WHITE );
     if FormUnit = '' then
@@ -13831,14 +13842,18 @@ begin
       Exit;
     end;
 
+    Log('-3');
     PasUpdated := FALSE;
     IncUpdated := FALSE;
     PAS := GeneratePAS( Path, PasUpdated );
+    Log('-4');
     INC := GenerateINC( Path, IncUpdated );
+    Log('-5');
     Updated := PasUpdated or IncUpdated;
     Result := PAS and INC;
     if Result and Updated then
     begin
+      Log('-6');
       // force mark modified here
       if PasUpdated then
         MarkModified( Path + '.pas' );
@@ -13849,6 +13864,7 @@ begin
       end;
     end;
   end;
+  Log('-7');
   LogOK;
   finally
   Log( '<-TKOLForm.GenerateUnit' );
@@ -18797,9 +18813,13 @@ begin
     if FormsList = nil then
     begin
       if not AutoBuilding then
+      begin
+      Log('--- There are not found TKOLForm instances ---');
       ShowMessage( 'There are not found TKOLForm component instances. You must create '+
                    'an instance for each form in your mirror project to provide ' +
                    'converting mirror project to KOL.' );
+
+      end;
       LogOK;
       Exit;
     end;
@@ -19211,6 +19231,7 @@ var SL, Source, AForms: TStringList;
     Updated: Boolean;
     Object2Run: TObject;
     IsDLL: Boolean;
+    FormsToAutoCreate: TStringList;
     /////////////////////////////////////////////////////////////////////////
     procedure Prepare_0inc;
     var SL: TStringList;
@@ -19456,15 +19477,24 @@ var SL, Source, AForms: TStringList;
           if (F <> nil) and (F is TKOLFrame) then continue;
           //Rpt( 'AutoForm: ' + S );
           if LowerCase( A ) = LowerCase( S + '.Form' ) then Continue;
-          if pos( ',', AForms[ I ] ) > 0 then
+
+          Log('check auto create: ' + AForms[I] + ' list: ' +
+                FormsToAutoCreate.Text);
+          if (pos( ',', AForms[ I ] ) > 0) and
+             ((FormsToAutoCreate.Count = 0) or
+              (FormsToAutoCreate.IndexOf(AForms[I]) >= 0)
+             ) then
           begin
+            Log('Yes, auto create');
             // MDI child form
             S1 := AForms[ I ];
-            Parse( S1, ',' );
+            if pos(',', S1) > 0 then Parse( S1, ',' );
             SL.Add( '  New' + Trim( S ) + '( ' + Trim( S ) + ', ' +
                     Trim( S1 ) + '.Form );' );
           end
             else
+          if (FormsToAutoCreate.Count = 0) or
+             (FormsToAutoCreate.IndexOf(AForms[I]) >= 0) then
           begin
             // normal or MDI parent form
             SL.Add( '  New' + S + '( ' + S + ', Pointer( ' + A + ' ) );' );
@@ -19482,6 +19512,7 @@ var SL, Source, AForms: TStringList;
     /////////////////////////////////////////////////////////////////////////
 
 var Kol_added, DontChangeUses: Boolean;
+    forms_list_auto: String;
 begin
   asm
     jmp @@e_signature
@@ -19490,7 +19521,17 @@ begin
   @@e_signature:
   end;
   Log( '->TKOLProject.GenerateDPR' );
+  //---------------------- список форм для автоматического создания ------------
+  FormsToAutoCreate := TStringList.Create;
   TRY
+
+  forms_list_auto := AutoCreateForms;
+  while forms_list_auto <> '' do
+  begin
+      FormsToAutoCreate.Add(KOL.Parse(forms_list_auto, ';'));
+  end;
+
+  try
 
   Rpt( 'Generating DPR for ' + Path, WHITE ); //Rpt_Stack;
   Result := False;
@@ -19588,6 +19629,11 @@ begin
   begin
     Inc( I );
     S := Source[ I ];
+
+    J := IndexOfStr(S, 'Vcl.');
+    if J > 0 then
+        S := Copy(S, 1, J-1) + Copy(S, J+4, MaxInt);
+
     RptDetailed( 'generate dpr -- A1 - ' + IntToStr(I) + ': ' + S, WHITE );
     if RemoveSpaces( S ) = RemoveSpaces( Signature ) then continue; // skip signature if present
     if LowerCase( Trim( S ) ) = LowerCase( 'program ' + ProjectName + ';' ) then
@@ -19664,13 +19710,13 @@ begin
   if GlobalNewIf then begin // D[u]fa теперь форма видна сразу на версиях выше 7
      if UpperCase( S ) = UpperCase( '{$IF Defined(KOL_MCK)} {$I ' + ProjectDest + '_0.INC} {$ELSE}' ) then
        continue;
-    
+
    if UpperCase( S ) = '{$IFEND}' then
-    continue; 
+    continue;
   end else begin
      if UpperCase( S ) = UpperCase( '{$IFDEF KOL_MCK} {$I ' + ProjectDest + '_0.INC} {$ELSE}' ) then
        continue;
-    
+
    if UpperCase( S ) = '{$ENDIF}' then
     continue;
   end;
@@ -19785,6 +19831,9 @@ begin
     RptDetailed( 'ENDOF Generating dpr', LIGHT + BLUE );
     Log( '<-TKOLProject.GenerateDPR' );
   END;
+  FINALLY
+    FormsToAutoCreate.Free;
+  END;
 end;
 
 function TKOLProject.GetBuild: Boolean;
@@ -19816,26 +19865,30 @@ begin
   begin
     if fIsKOL = 0 then
     begin
-      //ShowMessage( 'find if project Is KOL...' );
-      if (SourcePath <> '') and DirectoryExists( SourcePath ) and
-         (ProjectName <> '') and FileExists( SourcePath + ProjectName + '.dpr' ) then
+      //ShowMessage( 'find if project Is KOL...: SourcePath=' + SourcePath +
+      //             '  ProjectName:' + ProjectName);
+      if (SourcePath <> '') and DirectoryExists( SourcePath ) then
       begin
-        //ShowMessage( 'find if project Is KOL in ' + SourcePath + ProjectName + '.dpr' );
-        SL := TStringList.Create;
-        try
-          LoadSource( SL, SourcePath + ProjectName + '.dpr' );
-          for I := 0 to SL.Count - 1 do
-            if RemoveSpaces( SL[ I ] ) = RemoveSpaces( Signature ) then
-            begin
-              fIsKOL := 1;
-              break;
+          //ShowMessage('SourcePath=' + SourcePath + ' ProjectName=' + ProjectName);
+          if (ProjectName <> '') and FileExists( SourcePath + ProjectName + '.dpr' ) then
+          begin
+            //ShowMessage( 'find if project Is KOL in ' + SourcePath + ProjectName + '.dpr' );
+            SL := TStringList.Create;
+            try
+              LoadSource( SL, SourcePath + ProjectName + '.dpr' );
+              for I := 0 to SL.Count - 1 do
+                if KOL.RemoveSpaces( SL[ I ] ) = KOL.RemoveSpaces( Signature ) then
+                begin
+                  fIsKOL := 1;
+                  break;
+                end;
+              //if fIsKOL = 0 then
+              //  fIsKOL := -1;
+            finally
+              SL.Free;
             end;
-          //if fIsKOL = 0 then
-          //  fIsKOL := -1;
-        finally
-          SL.Free;
-        end;
-        //ShowMessage( IntToStr( fIsKOL ) );
+            //ShowMessage( IntToStr( fIsKOL ) );
+          end;
       end;
     end;
     Result := fIsKOL > 0;
@@ -19964,25 +20017,33 @@ begin
       end;*)
       // TODO: It's maybe an goodiear to use Get_ProjectName instead (with DontGetFromKOLProject option)?
 
+      Log('1');
       if ToolServices <> nil then
       begin
         Result := ExtractFileNameWOExt( ToolServices.GetProjectName );
+        Log('Result ' + Result);
         LogOK;
         exit;
       end;
       // TODO: use new OTAPI instead workaroud
-      // TODO: fix AAA_D12.dpoj copy from AAA.dproj that link to AAA.dpr (only AAA.dll affect)
+      // TODO: fix AAA_D12.dproj copy from AAA.dproj that link to AAA.dpr (only AAA.dll affect)
       {$IFDEF _D2005orHigher}
-      IProjectGroup := Get_ProjectGroup;
-      if Assigned(IProjectGroup) then
-      begin
-        Result := ExtractFileNameWOExt( IProjectGroup.ActiveProject.ProjectOptions.TargetName );
-        // More Effective than dproj name by ActiveProject.GetFilename
-        LogOK;
-        Exit;
+      Log('2');
+      try
+          IProjectGroup := Get_ProjectGroup;
+          if Assigned(IProjectGroup) then
+          begin
+            Result := ExtractFileNameWOExt( IProjectGroup.ActiveProject.ProjectOptions.TargetName );
+            // More Effective than dproj name by ActiveProject.GetFilename
+            Log('Result ' + Result);
+            LogOK;
+            Exit;
+          end;
+      except
       end;
       {$ENDIF}
 
+      Log('3');
       Result := Application.MainForm.Caption;
       if Length(Result) <> 0 then
       begin
@@ -20006,7 +20067,9 @@ begin
           Result := Trim( Copy( Result, 1, pos( '(', Result ) - 1 ) );
       end;
     end;
+    Log('4');
 
+    Log('Result ' + Result);
     LogOK;
   FINALLY
     Log( '<-TKOLProject.GetProjectName' )
@@ -20070,6 +20133,7 @@ var
   IIL: PItemIdList;
   Buf: Array[ 0..MAX_PATH ] of Char; // TODO: dangerous, if D2 have treat Char as D2009?
   SL: TStringList;
+  s: String;
 {$IFDEF _D2005orHigher}
   IProjectGroup: IOTAProjectGroup;
 {$ENDIF}
@@ -20201,7 +20265,25 @@ begin
 
   LogOK;
   FINALLY
-    Log( '<-TKOLProject.GetSourcePath' );
+      //ShowMessage('GetSourcePath==>' + Result);
+      if ExtractFileName(ExcludeTrailingPathDelimiter(Result)) = 'Debug' then
+      begin
+         s := ExtractFilePath(ExcludeTrailingPathDelimiter(Result));
+         //ShowMessage('Yes, Debug; s=' + s);
+         if ExtractFileName(ExcludeTrailingPathDelimiter(s)) = 'Win32' then
+         begin
+             s := ExtractFilePath(ExcludeTrailingPathDelimiter(s));
+             //ShowMessage('Yes, Win32; s=' + s);
+             //s := ExtractFilePath(ExcludeTrailingPathDelimiter(s));
+             // XE2, XE отбрасывать не надо, как раз там и лежит проект
+             if DirectoryExists(s) then
+             begin
+                Result := s;
+                //ShowMessage('Result==>' + s);
+             end;
+         end;
+      end;
+      Log( '<-TKOLProject.GetSourcePath' );
   END;
 end;
 
@@ -20406,6 +20488,16 @@ begin
   FINALLY
     Log( '<-TKOLProject.SetAutoBuildDelay' );
   END;
+end;
+
+procedure TKOLProject.SetAutoCreateForms(const Value: String);
+begin
+    if FAutoCreateForms = Value then
+       Exit;
+    FAutoCreateForms := Value;
+    if not (csLoading in ComponentState) then
+    
+    ConvertVCL2KOL(false, true);
 end;
 
 procedure TKOLProject.SetBuild(const Value: Boolean);
@@ -20843,7 +20935,7 @@ begin
   if not FBuilding and not AutoBuilding then
   begin
   fTimer.Enabled := False;
-  if not FLocked then
+  if not FLocked and not (csLoading in ComponentState) then
   begin
     if AutoBuild then
     begin
@@ -22463,6 +22555,7 @@ begin
     DB 'TKOLProjectBuilder.ExecuteVerb', 0
   @@e_signature:
   end;
+  //ShowMessage('TKOLProjectBuilder.ExecuteVerb(Index=' + IntToStr(Index) + ')');
   case Index of
   0: Edit;
   1: if Component <> nil then

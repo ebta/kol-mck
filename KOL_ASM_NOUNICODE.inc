@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 // KOL_ASM_NOUNICODE.inc (to inlude in KOL.pas)
-// v 3.20
+// v 3.210
 
 // this part of code is for case when ASM_VERSION is enabled and the symbol
 // UNICODE_CTRLS is NOT defined (functions, procedures and methods which work
@@ -3129,10 +3129,14 @@ asm
 @@getFCaption:
         MOV       EDX, [EBX].fCaption
         XCHG      EAX, EDI
-        {$IFNDEF UNICODE_CTRLS}
-        CALL      System.@LStrAsg
+        {$IFDEF UNICODE_CTRLS}
+            {$IFDEF UStr_}
+            CALL      System.@UStrFromPChar
+            {$ELSE}
+            CALL      System.@WStrFromPChar
+            {$ENDIF}
         {$ELSE}
-        CALL      System.@WStrFromPChar
+            CALL      System.@LStrAsg
         {$ENDIF}
 @@exit:
         POP       EDI
