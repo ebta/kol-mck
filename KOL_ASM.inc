@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 // KOL_ASM.inc (to inlude in KOL.pas)
-// v 3.210
+// v 3.23.5
 
 function MsgBox( const S: KOLString; Flags: DWORD ): DWORD;
 asm
@@ -681,71 +681,119 @@ procedure TerminateExecution( var AppletCtl: PControl );
 asm
           PUSH EBX
           PUSH ESI
+//------- AppalreadyTerminated (as BH) := AppletTerminated;
+//        AppletTerminated := TRUE;
+//        AppletRunning := FALSE;
           MOV  BX, $0100
           XCHG BX, word ptr [AppletRunning]
+
+//------- App (as ESI and ECX) := Applet;
+//        Applet := nil;
           XOR  ECX, ECX
           XCHG ECX, [Applet]
+          MOV  ESI, ECX
+
+//------- IF App <> nil THEN
           JECXZ @@exit
+
+          {$IFDEF LET_MENU_LEAK} // Was IFNDEF !!!
+//------- App.RefInc;
+          XCHG EAX, ECX
+          CALL TObj.RefInc
+          {$ENDIF}
 
           PUSH EAX
 
-          XCHG EAX, ECX
-          MOV  ESI, EAX
-          CALL TObj.RefInc
-
+//------- IF NOT AppalreadyTerminated THEN
           TEST BH, BH
           JNZ  @@closed
 
+//------- App.ProcessMessages;
           MOV  EAX, ESI
           CALL TControl.ProcessMessages
+
+//------- App.Perform(WM_CLOSE, 0, 0);
           PUSH 0
           PUSH 0
           PUSH WM_CLOSE
           PUSH ESI
           CALL TControl.Perform
 @@closed:
+//------- AppletCtl := NIL;
           POP  EAX
           XOR  ECX, ECX
           MOV  dword ptr [EAX], ECX
-          MOV  EAX, ESI
-          CALL TObj.RefDec
-          XCHG EAX, ESI
-          CALL TObj.RefDec
+
+          {$IFNDEF LET_MENU_LEAK}
+               PUSH [ESI].TControl.FHandle
+               CALL Windows.DestroyWindow
+          {$ELSE}
+               MOV  EAX, ESI
+               CALL TObj.RefDec
+               XCHG EAX, ESI
+               CALL TObj.RefDec
+          {$ENDIF}
 @@exit:
           POP  ESI
           POP  EBX
 end;
 
+
 procedure Run( var AppletCtl: PControl );
 asm
-        CMP       EAX, 0
+//----- if  AppletCtl = nil then Exit;
+        TEST      EAX, EAX
         JZ        @@exit
         PUSH      EBX
         XCHG      EBX, EAX
+
+//----- AppletRunning := TRUE;
         INC       [AppletRunning]
+
+//----- Applet := AppletCtl;
         MOV       EAX, [EBX]
         MOV       [Applet], EAX
+
+//----- AppletCtl.CreateWindow;
         CALL      CallTControlCreateWindow
-        JMP       @@2
-@@1:
+
+//----- WHILE NOT AppletTerminated DO
+@@loop: CMP       [AppletTerminated], 0
+        JNZ       @@end_loop
+
+//----- WaitMessage;
         CALL      WaitMessage
+
+//----- AppletCtl.ProcessMessages;
         MOV       EAX, [EBX]
         CALL      TControl.ProcessMessages
+
         {$IFDEF   USE_OnIdle}
+//----- ProcessIdle(AppletCtl);
         MOV       EAX, [EBX]
         CALL      [ProcessIdle]
         {$ENDIF}
-@@2:
-        MOVZX     ECX, [AppletTerminated]
-        JECXZ     @@1
 
+        JMP       @@loop
+@@end_loop:
+
+        {$IFDEF LET_MENU_LEAK}
         MOV       ECX, [EBX]
         XCHG      EAX, EBX
         POP       EBX
         JECXZ     @@exit
+        {$ELSE}
+        POP       EBX
+//----- IF Applet <> nil THEN
+        LEA       EAX, [Applet]
+        CMP       dword ptr [EAX], 0
+        JZ        @@exit
+        {$ENDIF}
+//----- TerminateExecution(Applet);
         CALL      TerminateExecution
 @@exit:
 end;
+
 
 function SimpleGetCtlBrushHandle( Sender: PControl ): HBrush;
 asm     //        //
@@ -5584,18 +5632,6 @@ asm
         CALL     IsWindow
         TEST     EAX, EAX
         JZ       @@destroy2
-        (* -- moved to WM_NCDESTROY handler - VK + Alexey Kirov
-        {$IFDEF USE_PROP}
-        PUSH     offset[ID_SELF] //* Remarked By M.Gerasimov
-        PUSH     [EBX].fHandle   //* unremarked to prevent problems with progress bar
-        CALL     RemoveProp
-        {$ELSE}
-        PUSH     0
-        PUSH     GWL_USERDATA
-        PUSH     [EBX].fHandle
-        CALL     SetWindowLong
-        {$ENDIF}
-        *)
         {$IFDEF  USE_fNCDestroyed}
         CMP      [EBX].fNCDestroyed, 0
         JNZ      @@destroy2
@@ -5921,7 +5957,26 @@ asm     //cmd    //opd
         {$ELSE}
         MOV      [ESI].TControl.fBeginDestroying, AL
         {$ENDIF}
+        {$IFDEF  LET_MENU_LEAK}
+        MOV      EAX, ESI
+        CALL     TObj.RefDec
         JMP      @@calldef
+        {$ELSE}
+        //-- call Default proc handler
+        MOV      EAX, ESI
+        MOV      EDX, EDI
+        CALL     TControl.CallDefWndProc
+        //-- if  Self = Applet then Applet := nil
+        CMP      ESI, [Applet]
+        JNE      @@no_self_not_applet
+        MOV      [Applet], 0
+@@no_self_not_applet:
+        //-- RefDec
+        MOV      EAX, ESI
+        CALL     TObj.RefDec
+        //-- Exit
+        JMP      @@exit
+        {$ENDIF}
 //**********************************************************
 @@chk_WM_NCDESTROY:
         CMP      AX, WM_NCDESTROY

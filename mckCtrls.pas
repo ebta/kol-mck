@@ -7958,7 +7958,7 @@ begin
           SL.Add( '    Result.' + Name + '.ImageListState := ' +
                   'Result.' + ImageListState.Name + ';' );
   end;
-  if (lvoEditLabel in Options) and not Assigned( OnEndEditLVItem ) then
+  if (lvoEditLabel in Options) and (TMethod(fOnEndEditLVItem).Code = nil) then
   begin
       //(SL as TFormStringList).OnAdd := nil;
       SL.Add( Prefix + AName + '.OnEndEditLVItem := nil;' );

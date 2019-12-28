@@ -14,7 +14,7 @@
   Key Objects Library (C) 2000 by Vladimir Kladov.
 
 ****************************************************************
-* VERSION 3.22
+* VERSION 3.23.4
 ****************************************************************
 
   K.O.L. - is a set of objects and functions to create small programs
@@ -860,21 +860,21 @@ type
         OnDestroy event for it. }
      {= Данное событие обеспечивается для всех объектов KOL. Позволяет сделать
         что-нибудь в связи с разрушением объекта. }
-    procedure Add2AutoFree( Obj: PObj );
-    {* Adds an object to the list of objects, destroyed automatically
-       when the object is destroyed. Do not add here child controls of
-       the TControl (these are destroyed by another way). Only non-control
-       objects, which are not destroyed automatically, should be added here. }
-    procedure Add2AutoFreeEx( Proc: TObjectMethod );
-    {* Adds an event handler to the list of events, called in destructor.
-       This method is mainly for internal use, and allows to auto-destroy
-       VCL components, located on KOL form at design time (in MCK project). }
-    procedure RemoveFromAutoFree( Obj: PObj );
-    {* Removes an object from auto-free list }
-    procedure RemoveFromAutoFreeEx( Proc: TObjectMethod );
-    {* Removes a procedure from auto-free list }
-    property Tag: DWORD read fTag write fTag;
-    {* Custom data field. }
+     procedure Add2AutoFree( Obj: PObj );
+     {* Adds an object to the list of objects, destroyed automatically
+        when the object is destroyed. Do not add here child controls of
+        the TControl (these are destroyed by another way). Only non-control
+        objects, which are not destroyed automatically, should be added here. }
+     procedure Add2AutoFreeEx( Proc: TObjectMethod );
+     {* Adds an event handler to the list of events, called in destructor.
+        This method is mainly for internal use, and allows to auto-destroy
+        VCL components, located on KOL form at design time (in MCK project). }
+     procedure RemoveFromAutoFree( Obj: PObj );
+     {* Removes an object from auto-free list }
+     procedure RemoveFromAutoFreeEx( Proc: TObjectMethod );
+     {* Removes a procedure from auto-free list }
+     property Tag: DWORD read fTag write fTag;
+     {* Custom data field. }
    protected
      {$IFDEF USE_NAMES}
      fName: AnsiString;
@@ -3361,8 +3361,10 @@ type
     {* It is possible to use Canvas.CopyRect for such purpose, but if You
        do not want use TCanvas, it is possible to copy rectangle from one
        bitmap to another using this function. }
+    function CopyToClipboardAsDIB: Boolean;
+    {* Copies bitmap to clipboard, converting it to DIB format first. }
     function CopyToClipboard: Boolean;
-    {* Copies bitmap to clipboard. }
+    {* Copies bitmap to clipboard. When Handle = 0, CLIPBOARD is emptied!!! }
     function PasteFromClipboard: Boolean;
     {* Takes CF_DIB format bitmap from clipboard and assigns it to the
        TBitmap object. }
@@ -11585,7 +11587,7 @@ function _WStrLComp(S1, S2: PWideChar; Len: Integer): Integer;
 function WStrScan(Str: PWideChar; Chr: WideChar): PWideChar;
 {* Fast search of given character in a string. Pointer to found character
    (or nil) is returned. }
-function WStrRScan(const Str: PWideChar; Chr: WideChar): PWideChar;
+function WStrRScan(Str: PWideChar; Chr: WideChar): PWideChar;
 {* StrRScan returns a pointer to the last occurrence of Chr in Str. If Chr
   does not occur in Str, StrRScan returns NIL. The null terminator is
   considered to be part of the string. }
@@ -17525,16 +17527,22 @@ begin
   Applet := nil;
   if (App <> nil) {and (App.RefCount >= 0)} then
   begin
+    {$IFDEF LET_MENU_LEAK} //was IFNDEF !!!
     App.RefInc;
+    {$ENDIF}
     if not Appalreadyterminated then
     begin
       App.ProcessMessages;
       App.Perform( WM_CLOSE, 0, 0 );
     end;
     AppletCtl := nil;
-    App.Free;
-    App.RefDec;
-  end;
+    {$IFNDEF LET_MENU_LEAK}            //   версия KOL 3.23+:
+            DestroyWindow(App.Handle); //** В этом варианте вызывается не деструктор
+    {$ELSE}                            //   объекта, а функция закрытия окна. Вызов
+            App.Free;
+            App.RefDec;                //   деструктора выполнится в обработчике
+    {$ENDIF}                           //   события WM_DESTROY. В результате, сначала
+  end;                                 //   успешно разрушится меню формы. 22.02.2015
 end;
 {$ENDIF PAS_VERSION}
 
@@ -17603,8 +17611,13 @@ begin
     ProcessIdle( AppletCtl );
     {$ENDIF}
   end;
+  {$IFDEF LET_MENU_LEAK}
   if  Assigned( AppletCtl ) then
       TerminateExecution( AppletCtl );
+  {$ELSE}
+  if  Assigned( Applet ) then
+      TerminateExecution( Applet );
+  {$ENDIF}
 end;
 {$ENDIF PAS_VERSION}
 {$ENDIF GDI}
@@ -21551,15 +21564,17 @@ begin
   Result := Str;
 end;
 
-function WStrRScan(const Str: PWideChar; Chr: WideChar): PWideChar;
+function WStrRScan(Str: PWideChar; Chr: WideChar): PWideChar;
 begin
-  Result := Str;
-  while Result^ <> #0 do inc( Result );
-  while (DWORD( Result ) >= DWORD( Str )) and
-        (Result^ <> Chr) do dec( Result );
-  if (DWORD( Result ) < DWORD( Str )) then
-    Result := nil
-  else inc(Result);
+    Result := nil;
+    while Str^ <> #0 do
+    begin
+        if Str^ = Chr then
+           Result := Str;
+        inc(Str);
+    end;
+    if Result = nil then
+       Result := Str;
 end;
 {$ENDIF WIN}
 {$ENDIF _FPC}
@@ -28946,6 +28961,9 @@ end;
 {$IFDEF GDI}
 destructor TMenu.Destroy;
 var Next, Prnt: PMenu;
+    {$IFNDEF LET_MENU_LEAK}
+    Save_Ref: Integer;
+    {$ENDIF}
 begin
   {$IFDEF DEBUG_MENU_DESTROY}
   LogFileOutput( GetStartDir + 'TMenu.Destroy.txt',
@@ -28958,11 +28976,19 @@ begin
   end;
   if FParentMenu <> nil then
   begin
-    Prnt := FParentMenu;
-    Next := Prnt.RemoveSubMenu( FId );
-    FParentMenu := nil;
-    Prnt.FMenuItems.Remove( @ Self );
-    if Next = nil then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+    {$IFNDEF LET_MENU_LEAK}
+    Save_Ref := Self.fRefCount; //** Очень грязный хак, конечно. Цель: предотвратить
+    Self.fRefCount := 17;       //   попытку повторного уничтожения этого объекта меню.
+    {$ENDIF}
+        Prnt := FParentMenu;
+        {$IFDEF LET_MENU_LEAK} Next := {$ENDIF} Prnt.RemoveSubMenu( FId );
+        FParentMenu := nil;
+        Prnt.FMenuItems.Remove( @ Self );
+    {$IFNDEF LET_MENU_LEAK}
+        Self.fRefCount := Save_Ref; //** Можно было бы и не восстанавливать.
+    {$ELSE}
+        if Next = nil then Exit;    //** Пришлось закомментарить. Вызывало утечку.
+    {$ENDIF}
   end;
    if (FControl <> nil) and (FControl.fMenu = FHandle) and (FHandle <> 0) then
    begin
@@ -37295,15 +37321,6 @@ begin
                        end;
                        Default;
                      end;
-                   (*
-                   {$IFDEF USE_PROP}
-                   WM_NCDESTROY:
-                             begin
-                               RemoveProp( fHandle, ID_SELF ); //********* Added By M.Gerasimov
-                               //RefDec;
-                             end;
-                   {$ENDIF}
-                   *)
                    WM_NCDESTROY:
                        {$IFnDEF SMALLER_CODE}
                        if  fHandle = Msg.hwnd then
@@ -37328,6 +37345,11 @@ begin
                            {$ELSE} fBeginDestroying := TRUE; {$ENDIF}
                            Default;
                            {$IFDEF INPACKAGE} LogOK; {$ENDIF INPACKAGE}
+                           {$IFNDEF LET_MENU_LEAK}
+                           if  @Self = Applet then
+                               Applet := nil;
+                           RefDec; //+++
+                           {$ENDIF}
                            Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
                        end;
                    WM_SIZE:  begin
@@ -52536,13 +52558,10 @@ begin
 end;
 {$ENDIF PAS_VERSION}
 
-function TBitmap.CopyToClipboard: Boolean;
+function TBitmap.CopyToClipboardAsDIB: Boolean;
 var DibMem: PAnsiChar;
     HdrSize: Integer;
     Gbl: HGlobal;
-    //Mem: PStream;
-    //Sz: Integer;
-    //Pt: Pointer;
     Restore_Compression: Integer;
 begin
   Result := FALSE;
@@ -52591,6 +52610,18 @@ begin
     END;
 
   end;
+  CloseClipboard;
+end;
+
+function TBitmap.CopyToClipboard: Boolean;
+begin
+  Result := FALSE;
+  if Applet = nil then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+  if not OpenClipboard( Applet.GetWindowHandle ) then Exit; {>>>>>>>>>>>>>>>>>>}
+  if EmptyClipboard then
+     if  Handle <> 0 then // When Handle = 0, CLIPBOARD is emptied!!!
+         Result := 0 <> SetClipboardData( CF_BITMAP,
+                                     CopyImage(Handle, IMAGE_BITMAP, 0, 0, 0) );
   CloseClipboard;
 end;
 
@@ -54908,7 +54939,9 @@ begin
   if Self_.fRefCount < 0 then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
   if (Self_.fDynHandlers = nil) or (Self_.fDynHandlers.fCount = 0) then
      Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+  {$IFNDEF NOPREVENTDESTROY}
   Self_.RefInc; // Prevent destroying Self_
+  {$ENDIF}
   for I := Self_.fDynHandlers.fCount div 2 - 1 downto 0 do
   begin
     Proc := Self_.fDynHandlers.{$IFDEF TLIST_FAST} Items {$ELSE} fItems {$ENDIF}[ I * 2 ];
@@ -54936,7 +54969,9 @@ begin
   {$ENDIF}
   if LongBool(Self_.fRefCount and 1) then
     Result := True; // If Self_ will be destroyed now, stop further processing
+  {$IFNDEF NOPREVENTDESTROY}
   Self_.RefDec; // Destroy Self_, if Free was called for it while processing attached procedures
+  {$ENDIF}
 end;
 {$ENDIF PAS_VERSION}
 
@@ -56477,13 +56512,7 @@ end;
 
 function ClipboardHasText: Boolean;
 begin
-  Result := false;
-  if OpenClipboard( 0 ) then
-  begin
-    if IsClipboardFormatAvailable( CF_TEXT ) then
-      Result := TRUE;
-    CloseClipboard;
-  end;
+  Result := IsClipboardFormatAvailable( CF_TEXT );
 end;
 
 function Clipboard2Text: AnsiString;
@@ -62600,3 +62629,4 @@ finalization //.................................................................
 {$ENDIF INIT_FINIT}//-----------------------------------------------------------
 
 end.
+
