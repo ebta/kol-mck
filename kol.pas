@@ -14,7 +14,7 @@
   Key Objects Library (C) 2000 by Vladimir Kladov.
 
 ****************************************************************
-* VERSION 3.210
+* VERSION 3.22
 ****************************************************************
 
   K.O.L. - is a set of objects and functions to create small programs
@@ -6672,6 +6672,7 @@ type
     {* The same as ShowModal, but all the windows of current thread are
        disabled while showing form modal. This is useful if KOL form from
        a DLL is used modally in non-KOL application. }
+    procedure ShowNoActivate;
     property ModalResult: Integer read DF.fModalResult
              write {$IFDEF USE_SETMODALRESULT} SetModalResult {$ELSE} DF.fModalResult {$ENDIF};
     {* |<#form>
@@ -21557,7 +21558,8 @@ begin
   while (DWORD( Result ) >= DWORD( Str )) and
         (Result^ <> Chr) do dec( Result );
   if (DWORD( Result ) < DWORD( Str )) then
-    Result := nil;
+    Result := nil
+  else inc(Result);
 end;
 {$ENDIF WIN}
 {$ENDIF _FPC}
@@ -22231,7 +22233,7 @@ var S1, S2: PAnsiChar;
 begin
     S1 := Str1;
     S2 := Str2;
-    while (S1^ <> #0) and (S2^ <> #0) do
+    while (S1^ <> #0) or (S2^ <> #0) do
     begin
         Result := Integer(Ord(S1^)) - Integer(Ord(S2^));
         if Result <> 0 then Exit;
@@ -22291,7 +22293,7 @@ var S1, S2: PAnsiChar;
 begin
     S1 := Str1;
     S2 := Str2;
-    while (S1^ <> #0) and (S2^ <> #0) and (MaxLen > 0) do
+    while ((S1^ <> #0) or (S2^ <> #0)) and (MaxLen > 0) do
     begin
         c1 := S1^;
         c2 := S2^;
@@ -22571,8 +22573,8 @@ begin
   begin
     F := {$IFDEF UNICODE_CTRLS} WStrRScan {$ELSE} StrRScan {$ENDIF}
          ( P, Delimiters^ );
-    if F <> nil then
-    if (Result^ = #0) or (Integer(F) > Integer(Result)) then
+    if (F <> nil) and (F^ <> #0) then
+    if (Result^ = #0) or (DWORD(F) > DWORD(Result)) then
        Result := F;
     Inc( Delimiters );
   end;
@@ -27833,9 +27835,9 @@ end;
 function NewReadWriteFileStream( const FileName: AnsiString ): PStream;
 asm
         PUSH     EBX
-        XCHG     EBX, EAX
+        XCHG     EBX, EAX   //EBX=Filename
         MOV      EAX, offset[BaseFileMethods]
-        CALL     _NewStream
+        CALL     _NewStream //EAX=Result
         MOV      EDX, [ReadFileStreamProc]
         MOV      [EAX].TStream.fMethods.fRead, EDX
         MOV      [EAX].TStream.fMethods.fWrite, offset[WriteFileStream]
@@ -27850,7 +27852,7 @@ asm
 
         CALL     FileCreate
         MOV      [EBX].TStream.fData.fHandle, EAX
-        XCHG     EAX, EBX
+        XCHG     EAX, EBX  //EAX=Result
         POP      EBX
 end;
 {$ELSE PAS_VERSION} //Pascal
@@ -38319,6 +38321,12 @@ begin
 end;
 {$ENDIF PAS_VERSION}
 
+procedure TControl.ShowNoActivate;
+begin
+   CreateWindow;
+   SetVisible( True );
+end;
+
 procedure TControl.Hide;
 begin
    SetVisible( False );
@@ -42823,6 +42831,8 @@ asm
         JNE      @@1
 
           MOV      ECX, [EDX].TMsg.lParam
+          CMP      CX, WM_MOUSELAST
+          JA       @@no_on
           MOV      EDX, [EDX].TMsg.wParam
           MOV      EAX, [EDX].TTrayIcon.fOnMouse.TMethod.Data
           CMP      word ptr [EDX].TTrayIcon.fOnMouse.TMethod.Code+2, 0
@@ -42880,9 +42890,12 @@ begin
   case Msg.message of
   CM_TRAYICON:
     begin
-      Self_ := Pointer( Msg.wParam );
-      if  Assigned( Self_.FOnMouse ) then
-          Self_.FOnMouse( @Self_, Msg.lParam );
+      if  Msg.lParam <= WM_MOUSELAST then
+      begin
+          Self_ := Pointer( Msg.wParam );
+          if  Assigned( Self_.FOnMouse ) then
+              Self_.FOnMouse( @Self_, Msg.lParam );
+      end;
       Rslt := 0;
       Result := True;
     end;
