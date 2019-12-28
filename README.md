@@ -1,4 +1,5 @@
 # kol-mck
+    This repository is for archiving purposes
 KOL (Key Objects Library) is a set of objects to develop power (but small, KOL allows to create executables of size about 10-20 times smaller than regular Delphi 7) 32 bit Windows GUI applications using Delphi but without VCL (or Free Pascal).
 
 Delphi2 - Delphi7, Borland Developer Studio 2005-2012, Turbo-Delphi, Kylix and Free Pascal Compiler 1.0.5 and higher are supported. KOL allows to create very compact Windows32 GUI applications (starting from ~11K without compression - if suggested system units replacement used). The most of code is converted to built-in assembler.
