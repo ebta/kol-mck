@@ -14,7 +14,7 @@
   Key Objects Library (C) 2000 by Vladimir Kladov.
 
 ****************************************************************
-* VERSION 3.18
+* VERSION 3.19
 ****************************************************************
 
   K.O.L. - is a set of objects and functions to create small programs
@@ -3811,6 +3811,7 @@ const
     idx_fOnMaximize         = 41;
     idx_fOnRestore          = 42;
     idx_fOnLVCustomDraw     = 43;
+    idx_fOnLVSubitemDraw    = 43;
     idx_fOnEndEditLVITem    = 44;
     idx_fOnLVData           = 45;
     idx_fOnCompareLVItems   = 46;
@@ -4288,6 +4289,12 @@ type
                   : DWORD of object;
   {* Event type for OnLVCustomDraw event. }
 
+  TOnLVSubitemDraw = function( Sender: PControl; DC: HDC; Dummy {always 0 !}: DWORD;
+                  ItemIdx, SubItemIdx: Integer; const Rect: TRect;
+                  ItemState: TDrawState; var TextColor, BackColor: TColor ): Boolean
+                  of object;
+  {* Event type for OnLVSubitemDraw event. }
+
   TOnPaint = procedure( Sender: PControl; DC: HDC ) of object;
   TPaintProc = procedure( DC: HDC ) of object;
 
@@ -4600,7 +4607,7 @@ type
     fOnRestore: TOnEvent;                          //
     //---------------------------------------------//
 
-    fOnLVCustomDraw: TOnLVCustomDraw;
+    fOnLVCustomDraw: TOnLVCustomDraw; // same field for fOnLVSubitemDraw !
     fOnEndEditLVItem: TOnEditLVItem;
     fOnLVData: TOnLVData;
     fOnCompareLVItems: TOnCompareLVItems;
@@ -4929,6 +4936,7 @@ type
     function Get_OnLVStateChange: TOnLVStateChange;
     function Get_OnDrawItem: TOnDrawItem;
     function Get_OnLVCustomDraw: TOnLVCustomDraw;
+    function Get_OnLVSubitemDraw: TOnLVSubitemDraw;
     function Get_OnTVBeginDrag: TOnTVBeginDrag;
     function Get_OnTVBeginEdit: TOnTVBeginEdit;
     function Get_OnTVEndEdit: TOnTVEndEdit;
@@ -5642,6 +5650,7 @@ type
     procedure SetSBMinMax(const Value: TPoint);
   protected
     procedure SetOnLVCustomDraw(const Value: TOnLVCustomDraw);
+    procedure SetOnLVSubitemDraw(const Value: TOnLVSubitemDraw);
   {$ENDIF GDI}
   protected
   {$IFDEF GDI}
@@ -7972,6 +7981,9 @@ type
        |<br>
        See also NM_CUSTOMDRAW in API Help.
     }
+    property OnLVSubitemDraw: TOnLVSubitemDraw
+             read Get_OnLVSubitemDraw
+             write SetOnLVSubitemDraw;
 
     procedure Set_LVItemHeight(Value: Integer);
     function SetLVItemHeight(Value: Integer): PControl;
@@ -14332,7 +14344,8 @@ procedure _SetDIBPixelsTrueColorAlpha( Bmp: PBitmap; X, Y: Integer; Value: TColo
 var OnMonitorMessage: procedure( var M: TMsg; Enter_WndFunc: Boolean ) of object = nil;
 {$ENDIF}
 
-
+function WndProcCMExec( Sender: PControl; var Msg: TMsg; var Rslt: Integer )
+                          : Boolean;
 {$IFDEF _D2006orHigher}
 	{$I MCKfakeClasses200x.inc} // Dufa
 {$ENDIF}
@@ -20616,7 +20629,11 @@ function StrScanLen(Str: PAnsiChar; Chr: AnsiChar; Len: Integer): PAnsiChar;
 begin
     while (Str^ <> #0) and (Len > 0) do
     begin
-        if Str^ = Chr then break;
+        if Str^ = Chr then
+        begin
+           inc(Str); 
+           break;
+        end;
         inc(Str);
         dec(Len);
     end;
@@ -22879,7 +22896,7 @@ end;
 {$ENDIF PAS_VERSION}
 {$ENDIF WIN}
 
-{$IFDEF ASM_VERSION}{$ELSE PAS_VERSION} //Pascal
+{$IFDEF ASM_VERSION_no}{$ELSE PAS_VERSION} //Pascal
 function File2Str(Handle: THandle): AnsiString;
 var Pos, Size: DWORD;
 begin
@@ -22887,9 +22904,8 @@ begin
   if Handle = 0 then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
   Pos := FileSeek( Handle, 0, spCurrent );
   Size := GetFileSize( Handle, nil );
-  SetString( Result, nil, Size - Pos + 1 );
+  SetString( Result, nil, Size - Pos );
   FileRead( Handle, Result[ 1 ], Size - Pos );
-  Result[ Size - Pos + 1 ] := #0;
 end;
 {$ENDIF PAS_VERSION}
 
@@ -32131,14 +32147,17 @@ begin
       if IL <> nil then
       begin
           IL.DrawingStyle := [ dsTransparent ];
-          {$IFDEF TEST_IL}
-          B := NewBitmap( 0, 0 );
-          B.Handle := IL.GetBitmap;
-          B.SaveToFile( GetStartDir + 'test_IL_show.bmp' );
-          B.ReleaseHandle;
-          B.Free;
-          {$ENDIF TEST_IL}
           IL.Draw( Sender.fCurIndex, Sender.fPaintDC, Sender.fClientLeft, Sender.fClientTop );
+          {$IFDEF TEST_IL}
+          if  not FileExists(GetStartDir + 'test_IL_show.bmp') and (1 = 0) then
+          begin
+              B := NewBitmap( 0, 0 );
+              B.Handle := IL.GetBitmap;
+              B.SaveToFile( GetStartDir + 'test_IL_show.bmp' );
+              B.ReleaseHandle;
+              B.Free;
+          end;
+          {$ENDIF TEST_IL}
           Result := TRUE;
       end;
       if  Msg.wParam = 0 then
@@ -45582,23 +45601,29 @@ begin
 end;
 
 function LoadBmp( Instance: Integer; Rsrc: PKOLChar; MasterObj: PObj ): HBitmap;
-{$IFDEF LOAD_RLE_BMP_RSRCES}
-var B: PBitmap;
-    R: PStream;
+{$IFDEF LOAD_RLE_BMP_RSRCES} // actually this is not necessary still Windows can
+var B: PBitmap;              // load compressed bitmap resources itself (at least
+    R: PStream;              // starting from XP)
 {$ENDIF}
 begin
   {$IFDEF LOAD_RLE_BMP_RSRCES}
-  R := NewMemoryStream;
-  Resource2Stream( R, hInstance, Rsrc, RT_BITMAP );
-  B := NewBitmap( 0, 0 );
-  R.Position := 0;
-  B.LoadFromStreamEx( R );
-  R.Free;
-  //B.SaveToFile( GetStartDir + 'test_loadbmp.bmp' );
-  Result := B.ReleaseHandle;
-  B.Free;
+      R := NewMemoryStream;
+      Resource2Stream( R, hInstance, Rsrc, RT_BITMAP );
+
+      B := NewBitmap( 0, 0 );
+      R.Position := 0;
+      {$IFDEF TEST_RSRC_RLE}
+      Mem2File(PChar( GetStartDir + 'test_rsrc.bmp' ), R.Memory, R.Size);
+      {$ENDIF}
+      B.LoadFromStreamEx( R );
+      R.Free;
+      {$IFDEF TEST_RSRC_RLE}
+      B.SaveToFile( GetStartDir + 'test_loadbmp.bmp' );
+      {$ENDIF}
+      Result := B.ReleaseHandle;
+      B.Free;
   {$ELSE}
-  Result := LoadBitmap( Instance, Rsrc );
+      Result := LoadBitmap( Instance, Rsrc );
   {$ENDIF}
   MasterObj.Add2AutoFreeEx( TObjectMethod( MakeMethod( Pointer( Result ), @ FreeBmp ) ) );
 end;
@@ -45636,32 +45661,35 @@ begin
 end;
 
 function TImageList.AddMasked(Bmp: HBitmap; Color: TColor): Integer;
-{$IFDEF TEST_IL}
+{$IFDEF TEST_IL2}
 var B: PBitmap;
+{$ENDIF}
+{$IFDEF TEST_IL3}
+var B3: PBitmap;
 {$ENDIF}
 begin
   Result := -1;
   if not HandleNeeded then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
-  {$IFDEF TEST_IL}
+  {$IFDEF TEST_IL2}
   B := NewBitmap( 0, 0 );
   B.Handle := Bmp;
-  B.PixelFormat := pf32bit;
-  B.SaveToFile( GetStartDir + 'test_Add_masked1.bmp' );
+  //B.PixelFormat := pf32bit;
+  //B.SaveToFile( GetStartDir + 'test_Add_masked1.bmp' );
   Bmp := B.ReleaseHandle;
   B.Free;
   {$ENDIF}
   Result := ImageList_AddMasked( FHandle, Bmp, Color2RGB( Color ) );
-  {$IFDEF TEST_IL}
-  B := NewBitmap( 0, 0 );
-  B.Handle := GetBitmap;
-  B.SaveToFile( GetStartDir + 'test_Add_masked2.bmp' );
-  B.ReleaseHandle;
-  B.Free;
-  B := NewBitmap( 0, 0 );
-  B.Handle := GetMask;
-  B.SaveToFile( GetStartDir + 'test_Add_masked3.bmp' );
-  B.ReleaseHandle;
-  B.Free;
+  {$IFDEF TEST_IL3}
+  B3 := NewBitmap( 0, 0 );
+  B3.Handle := GetBitmap;
+  B3.SaveToFile( GetStartDir + 'test_Add_masked2.bmp' );
+  B3.ReleaseHandle;
+  B3.Free;
+  B3 := NewBitmap( 0, 0 );
+  B3.Handle := GetMask;
+  B3.SaveToFile( GetStartDir + 'test_Add_masked3.bmp' );
+  B3.ReleaseHandle;
+  B3.Free;
   {$ENDIF}
 end;
 
@@ -46456,7 +46484,7 @@ var Hdr: HWnd;
     ClassNameBuf: array[ 0..31 ] of KOLChar;
     HdItem: THDItem;
 begin
-  Result.Top := ColIdx; // + 1; error in MSDN ?
+  Result.Top := ColIdx;  // 1-based index of subitem
   Result.Left := LVIR_BOUNDS;
   if Perform( LVM_GETSUBITEMRECT, Idx, Integer( @Result ) ) <> 0 then
     Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
@@ -49716,42 +49744,90 @@ end;
 {$ENDIF PAS_VERSION}
 
 ////////////////// bitmap RLE-decoding and loading - by Vyacheslav A. Gavrik
+function MoveTetrades(Mem, From:PByte; Size: Integer;incFrom,
+         xx: Integer): Integer; forward;
+function MoveRLEdata(Mem, From:PByte;Size: Integer;incFrom,
+         xx: Integer): Integer; forward;
+                                        
+{$IFDEF ASM_VERSION} {$ELSE PAS_VERSION}
+function MoveTetrades(Mem, From:PByte; Size: Integer;incFrom,
+         xx: Integer): Integer;
+var ff: Integer;
+    Value: Byte;
+begin
+    ff := 0;
+    Result:=(Size+1)shr 1;
+    if Byte(Result) and 1 <> 0 then Inc( Result );
+    while Size > 0 do
+    begin
+        Value := From^;
+        if  Byte(ff) and 1 <> 0 then
+        begin
+            inc(From, incFrom);
+            Value := Value and $0F;
+        end
+          else
+        begin
+            Value := Value shr 4;
+        end;
+        if  Byte(xx) and 1 <> 0 then
+        begin
+            Mem^ := Mem^ {$IFNDEF SMALLER_CODE} and $F0 {$ENDIF} or Value;
+            inc(Mem);
+        end
+          else
+        begin
+            Mem^ := Value shl 4;
+        end;
+        inc(xx);
+        inc(ff);
+        dec(Size);
+    end;
+end;
+{$ENDIF}
+
+{$IFDEF ASM_VERSION} {$ELSE PASCAL}
+function MoveRLEdata(Mem, From:PByte;Size: Integer;incFrom,
+         xx: Integer): Integer;
+begin
+    Result := (Size+1) and (not 1);
+    while Size > 0 do
+    begin
+        Mem^ := From^;
+        inc(Mem);
+        inc(From, incFrom);
+        dec(Size);
+    end;
+end;
+{$ENDIF ASM_VERSION}
+
+type TMoveData = function (_To, _From: PByte; Size: Integer;
+                          incFrom, xx: Integer ): Integer;
+procedure DecodeRLE(Bmp:PBitmap;Data:Pointer; MaxSize: DWORD;
+    MoveDataFun: TMoveData; shr_x: Integer); forward;
 
 // by Vyacheslav A. Gavrik
-procedure DecodeRLE4(Bmp:PBitmap;Data:Pointer; MaxSize: DWORD);
-  procedure OddMove(Src,Dst:PByte;Size:Integer);
-  begin
-    if Size=0 then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
-    repeat
-      Dst^:=(Dst^ and $F0)or(Src^ shr 4);
-      Inc(Dst);
-      Dst^:=(Dst^ and $0F)or(Src^ shl 4);
-      Inc(Src);
-      Dec(Size);
-    until Size=0;
-  end;
-  procedure OddFill(Mem:PByte;Size,Value:Integer);
-  begin
-    Value:=(Value shr 4)or(Value shl 4);
-    Mem^:=(Mem^ and $F0)or(Value and $0F);
-    Inc(Mem);
-    if Size>1 then FillChar(Mem^,Size,Char( Value ))
-    else Mem^:=(Mem^ and $0F)or(Value and $F0);
-  end;
+// modified: Kladov V.
+{$IFDEF ASM_VERSION}
+{$ELSE}
+procedure DecodeRLE(Bmp:PBitmap;Data:Pointer; MaxSize: DWORD;
+    MoveDataFun: TMoveData; shr_x: Integer);
 var
   pb: PByte;
-  x,y,z,i: Integer;
+  x,y,z,d: Integer;
 begin
   pb:=Data; x:=0; y:=0;
+  {$IFNDEF SMALLER_CODE}
   if Bmp.fScanLineSize = 0 then
+  {$ENDIF}
      Bmp.ScanLineSize;
   while (y<Bmp.Height) and (DWORD(pb) - DWORD(Data) < MaxSize) do
   begin
     if pb^=0 then
     begin
       Inc(pb);
-      z:=pb^;
-      case pb^ of
+      z := pb^;
+      case z of
         0: begin
              Inc(y);
              x:=0;
@@ -49764,14 +49840,13 @@ begin
         else
         begin
           Inc(pb);
-          i:=(z+1)shr 1;
-          if i and 1 = 1 then Inc( i );
           if x + z <= bmp.Width then
-          if x and 1 =1 then
-            OddMove(pb,@PByteArray(Integer( Bmp.fDIBBits ) + Bmp.fScanLineSize * y)[x shr 1],(z+1)shr 1)
-          else
-            Move(pb^,PByteArray(Integer( Bmp.fDIBBits ) + Bmp.fScanLineSize * y)[x shr 1],(z+1)shr 1);
-          Inc(pb,i-1);
+          begin
+             d := MoveDataFun(@ PByteArray(
+                                Integer( Bmp.fDIBBits ) + Bmp.fScanLineSize * y)
+                                [x shr shr_x], pb, z, 1, x);
+             inc(pb, d-1);
+          end;
           Inc(x,z);
         end;
       end;
@@ -49780,63 +49855,15 @@ begin
       z:=pb^;
       Inc(pb);
       if x + z <= Bmp.Width then
-        if x and 1 = 1 then
-          OddFill(@PByteArray(Integer( Bmp.fDIBBits ) + Bmp.fScanLineSize * y)[x shr 1],(z+1) shr 1,pb^)
-        else
-          FillChar( PByteArray(Integer( Bmp.fDIBBits ) + Bmp.fScanLineSize * y)[x shr 1],
-                    (z+1) shr 1, AnsiChar( pb^ ));
+        MoveDataFun(@ PByteArray(
+                      Integer( Bmp.fDIBBits ) + Bmp.fScanLineSize * y)
+                      [x shr shr_x], pb, z, 0, x);
       Inc(x,z);
     end;
     Inc(pb);
   end;
 end;
-
-// by Vyacheslav A. Gavrik
-procedure DecodeRLE8(Bmp:PBitmap;Data:Pointer; MaxSize: DWORD);
-var
-  pb: PByte;
-  x,y,z,i: Integer;
-begin
-  pb:=Data; y:=0; x:=0;
-  if Bmp.fScanLineSize = 0 then
-     Bmp.ScanLineSize;
-
-  while (y<Bmp.Height) and (DWORD(pb) - DWORD(Data) < MaxSize) do
-  begin
-    if pb^=0 then
-    begin
-      Inc(pb);
-      case pb^ of
-        0: begin
-             Inc(y);
-             x:=0;
-           end;
-        1: Break;
-        2: begin
-             Inc(pb); Inc(x,pb^);
-             Inc(pb); Inc(y,pb^);
-           end;
-        else
-        begin
-          i:=pb^;
-          z:=(i+1)and(not 1);
-          Inc(pb);
-          Move(pb^,PByteArray(Integer( Bmp.fDIBBits ) + Bmp.fScanLineSize * y)[x],i);
-          Inc(pb,z-1);
-          Inc(x,i);
-        end;
-      end;
-    end else
-    begin
-      i:=pb^; Inc(pb);
-      if x + i <= Bmp.Width then
-        FillChar( PByteArray(Integer( Bmp.fDIBBits ) + Bmp.fScanLineSize * y)[x],
-                  i, AnsiChar( pb^ ));
-      Inc(x,i);
-    end;
-    Inc(pb);
-  end;
-end;
+{$ENDIF ASM_VERSION}
 
 function TBitmap.LoadFromFileEx(const Filename: KOLString): Boolean; // by Vyacheslav A. Gavrik
 var Strm: PStream;
@@ -49983,6 +50010,10 @@ var Pos : DWORD;
           begin
             if Strm.Read( fDIBheader.bmiColors[ 0 ], ColorCount )
                <> DWORD( ColorCount ) then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+            {$IFDEF TEST_BMP_COLORS}
+            Mem2File(PChar(GetStartDir+'loaded_colors.dmp'),
+                     @ fDIBHeader.bmiColors[0], ColorCount);
+            {$ENDIF}
             if Off - ColorCount > 0 then
               Strm.Position := Integer( Strm.Position ) + Off - ColorCount;
           end;
@@ -50047,9 +50078,9 @@ var Pos : DWORD;
           Buffer := AllocMem( Size * 3 );
           if Strm.Read(Buffer^,L) <> DWORD( L ) then ;
           if fDIBHeader.bmiHeader.biCompression=BI_RLE8 then
-             DecodeRLE8(@Self,Buffer,Size * 3)
+             DecodeRLE(@Self,Buffer,Size * 3, MoveRLEdata, 0)
           else
-             DecodeRLE4(@Self,Buffer,Size * 3);
+             DecodeRLE(@Self,Buffer,Size * 3, MoveTetrades, 1);
           Strm.Position := FinalPos;
           fDIBHeader.bmiHeader.biCompression := BI_RGB;
           FreeMem(Buffer);
@@ -50420,7 +50451,7 @@ var BFH : TBitmapFileHeader;
            end;
        end;
    end;
-   procedure WriteRun2( P: PByteArray; cnt: Integer );
+   {procedure WriteRun2( P: PByteArray; cnt: Integer );
    var n, i, L: Integer;
    begin
        i := 0;
@@ -50459,13 +50490,52 @@ var BFH : TBitmapFileHeader;
                dec( n, 2 );
            end;
        end;
+   end;}
+   procedure WriteRun2( P: PByteArray; cnt: Integer );
+   var n, i, L: Integer;
+   begin
+       i := 0;
+       while cnt > 0 do
+       begin
+           if  cnt <= 2 then
+           begin
+               if  cnt = 1 then
+                   Strm.WriteVal(01, 1)
+               else
+                   Strm.WriteVal(02, 1);
+               Strm.WriteVal( P[i] shl 4 or P[i+1], 1 );
+               break;
+           end
+             else
+           begin
+               n := cnt;
+               if n >= 255 then
+                  n := 254;
+               Strm.WriteVal(00, 1);
+               Strm.WriteVal(n, 1);
+               Dec(cnt, n);
+               L := 0;
+               while n > 0 do
+               begin
+                   Strm.WriteVal( P[i] shl 4 or P[i+1], 1 );
+                   inc( i, 2 );
+                   dec( n, 2 );
+                   inc(L);
+               end;
+               if  L and 1 <> 0 then
+                   Strm.WriteVal(00, 1);
+           end;
+       end;
    end;
    function WriteRLE4: Boolean;
    var line_len_left, y, cnt: Integer;
        P, Pnext: PByte;
        PnextLine: PByte;
        offX, offY: Integer;
+       H, W: Integer;
    begin
+       W := Width;
+       H := Height;
        y := 0;
        P := MS.Memory;
        while y < Height do
@@ -50476,11 +50546,14 @@ var BFH : TBitmapFileHeader;
            begin
                if  P^ = 0 then
                begin
-                   cnt := CountZeroes( P, line_len_left + (Height-y-1)*Width );
+                   cnt := 0;
+                   if  DWORD(fDIBHeader.bmiColors[0]) = 0 then
+                       { see comment below }
+                       cnt := CountZeroes( P, line_len_left + (H-y-1)*W );
                    if  cnt > 3 then
                    begin // generate offset
-                       offY := cnt div Width;
-                       offX := cnt - offY * Width;
+                       offY := cnt div W;
+                       offX := cnt - offY * W;
                        if  (offX < 0)
                        or (offY = 0) and (offX >= line_len_left)
                        or (line_len_left < offX) then
@@ -50502,7 +50575,18 @@ var BFH : TBitmapFileHeader;
                if  cnt >= 3 then
                begin
                    Pnext := P; inc( Pnext );
-                   WriteRep( cnt, (P^ shl 4) or (Pnext^) );
+                   if (cnt < line_len_left) or
+                      (cnt = line_len_left) and
+                      ( (DWORD(fDIBHeader.bmiColors[P^]) <> 000000) or
+                        (DWORD(fDIBHeader.bmiColors[Pnext^]) <> 000000)
+                      )
+                   { this condition is necessary since due a bug (or behavior)
+                     in ALL versions of Windows, not filled pixels while
+                     loading via system API functions (skept when a line is
+                     ended) ALWAYS are fill with BLACK ignoring real color
+                     at index 0 in a bitmap palette.
+                   }  then
+                      WriteRep( cnt, (P^ shl 4) or (Pnext^) );
                    inc( P, cnt );
                    dec( line_len_left, cnt );
                end else
@@ -50518,7 +50602,7 @@ var BFH : TBitmapFileHeader;
                 Strm.WriteVal( 0, 1 )  // EOL
            else Strm.WriteVal( 1, 1 ); // EOB
            inc(y);
-           if  ( Integer( P ) - Integer( PnextLine ) ) mod Width <> 0 then
+           if  ( Integer( P ) - Integer( PnextLine ) ) mod W <> 0 then
            begin {$IFNDEF PAS_ONLY}
              asm
                nop
@@ -50530,7 +50614,6 @@ var BFH : TBitmapFileHeader;
    function WriteRLE8: Boolean;
    var line_len_left, y, cnt: Integer;
        P: PByte;
-       //Pnext: PByte;
        offX, offY: Integer;
    begin
        y := 0;
@@ -50538,7 +50621,6 @@ var BFH : TBitmapFileHeader;
        while y < Height do
        begin
            line_len_left := Width;
-           //Pnext := P; inc( Pnext, line_len_left );
            while line_len_left > 0 do
            begin
                if  P^ = 0 then
@@ -50584,10 +50666,6 @@ var BFH : TBitmapFileHeader;
                 Strm.WriteVal( 00, 1 )  // EOL
            else Strm.WriteVal( 01, 1 ); // EOB
            inc(y);
-           {if  P <> Pnext then
-           asm
-             nop
-           end;}
        end;
        Result := TRUE;
    end;
@@ -50651,6 +50729,10 @@ var BFH : TBitmapFileHeader;
       if  Strm.Write( BIH, Sizeof( BIH ) ) <> Sizeof( BIH ) then Exit; {>>>>>>>}
       if  Strm.Write( fDIBHeader.bmiColors, ColorsSize ) <> DWORD(ColorsSize) then
           Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+      {$IFDEF TEST_BMP_COLORS}
+      Mem2File(PChar(GetStartDir+'stored_colors.dmp'),
+               @ fDIBHeader.bmiColors[0], ColorsSize);
+      {$ENDIF}
       if   fDIBHeader.bmiHeader.biBitCount = 8 then
            Result := WriteRLE8
       else Result := WriteRLE4;
@@ -56452,6 +56534,8 @@ begin
     end;
     T2 := GetTickCount;
     if Abs( T1 - T2 ) > 100 then break;
+    Sleep(100);
+    Applet.ProcessMessages;
   end;
   Result := Wnd;
 end;
@@ -56503,26 +56587,52 @@ var P: PAnsiChar;
 
     procedure Send( Msg, KeyCode: Integer );
     var lParam: Integer;
+        e: DWORD;
     begin
+      if  (Keycode = VK_LBUTTON) or (KeyCode = VK_RBUTTON)  then
+      begin
+          if  KeyCode = VK_LBUTTON then
+              e := MOUSEEVENTF_LEFTDOWN
+          else
+              e := MOUSEEVENTF_RIGHTDOWN;
+          if Msg = MsgUp then
+             e := e + 2;
+          mouse_event( e, 0, 0, 0, 0 );
+          exit;
+      end;
       Wnd := WaitFocusedWndChild( Wnd );
-      if Wnd = 0 then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+      if Wnd = 0 then
+      begin
+         asm nop end;
+         Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+      end;
       lParam := 1;
       if longBool( SCA and 4 ) then
         lParam := $20000001;
       if Msg = MsgUp then
         lParam := lParam or Integer($D0000000);
       PostMessage( Wnd, Msg, KeyCode, lParam );
-      Applet.ProcessMessages;
       if Wait then
-        Sleep( 50 );
+      begin
+        Applet.ProcessMessages;
+        Sleep( 10 );
+      end;
     end;
 
     function CompareSend( Pattern: PAnsiChar; Value2Send: Integer ): Boolean;
     begin
       if Compare( Pattern ) then
       begin
-        Send( MsgDn, Value2Send );
-        Send( MsgUp, Value2Send );
+        if  Value2Send = 0 then
+        begin
+           Sleep(500);
+           //Applet.ProcessMessages;
+        end
+          else
+        begin
+            Send( MsgDn, Value2Send );
+            Send( MsgUp, Value2Send );
+        end;
         Result := True;
       end
          else
@@ -56630,7 +56740,10 @@ var P: PAnsiChar;
                 CompareSend( 'Subtract', $6D ) or
                 CompareSend( 'Tab', $09 ) or
                 CompareSend( 'Gray-', $6D ) or
-                CompareSend( 'Up', $26 )) then break;
+                CompareSend( 'Up', $26 ) or
+                CompareSend( 'Sleep', 0 ) or
+                CompareSend( 'LClick', VK_LBUTTON ) or
+                CompareSend( 'RClick', VK_RBUTTON )) then break;
       end;
       while not (P^ in [ #0, EndChar ]) do
       begin
@@ -56664,14 +56777,32 @@ var P: PAnsiChar;
       Result := P;
     end;
 
+var W: HWnd;
+    each_key: Boolean;
+
+    procedure AdjustWnd;
+    begin
+        W := GetTopWindow( Wnd );
+        if  W = 0 then
+            W := Wnd;
+        W := GetFocusedChild( W );
+        if W = 0 then W := Wnd;
+        Wnd := W;
+    end;
 begin
-  Result := False;
-  Wnd := GetTopWindow( Wnd );
-  Wnd := GetFocusedChild( Wnd );
-  if Wnd = 0 then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+  each_key := FALSE;
+  if  Wnd = 0 then
+      each_key := TRUE
+  else
+      AdjustWnd;
   P := PAnsiChar( S );
   while P^ <> #0 do
   begin
+    if  each_key then
+    begin
+        Wnd := GetForegroundWindow;
+        AdjustWnd;
+    end;
     if not (P^ in [ '[', '{' ]) then
     begin
       Stroke2Window( Wnd, AnsiString('') + P^ ); // TODO: adjust compile options?
@@ -56782,12 +56913,11 @@ begin
   App := AppPath;
   //if (pos( KOLString(' '), App ) > 0) and (pos( KOLString('"'), App ) <= 0) then
   if (App <> '') and (App[1] <> '"') and (pos( KOLString(' '), App ) > 0) then
-    App := '"' + App + '"';
+      App := '"' + App + '"';
   if (App <> '') and (CmdLine <> '') then
-    App := App + ' ';
-  if CreateProcess( nil, PKOLChar( App + CmdLine ), nil,
-     nil, FALSE, Flags, nil, DfltDir, Startup,
-     ProcInf ) then
+      App := App + ' ';
+  if  CreateProcess( nil, PKOLChar( App + CmdLine ), nil,
+      nil, FALSE, Flags, nil, DfltDir, Startup, ProcInf ) then
   begin
     if WaitForSingleObject( ProcInf.hProcess, TimeOut ) = WAIT_OBJECT_0 then
     begin
@@ -57434,6 +57564,84 @@ begin
   {$IFDEF EVENTS_DYNAMIC} ProvideUniqueEvents {$ELSE} EV {$ENDIF}
   .fOnLVCustomDraw := Value;
   AttachProc( @WndProc_LVCustomDraw );
+end;
+
+function WndProc_LVSubitemDraw( Sender: PControl; var Msg: TMsg;
+                               var Rslt: Integer ): Boolean;
+var NMCustDraw: PNMLVCustomDraw;
+    NMHdr: PNMHdr;
+    ItemIdx, SubItemIdx: Integer;
+    S: TListViewItemState;
+    ItemState: TDrawState;
+    was_clrText, was_clrTextBk: DWORD;
+    R: TRect;
+begin
+  Result := FALSE;
+  if Msg.message = WM_NOTIFY then
+  begin
+    NMHdr := Pointer( Msg.lParam );
+    if (NMHdr.code = NM_CUSTOMDRAW)
+    {$IFDEF NIL_EVENTS} and Assigned( Sender.EV.fOnLVCustomDraw ) {$ENDIF}
+    then
+    begin
+      NMCustDraw := Pointer( Msg.lParam );
+      CASE NMCustDraw.nmcd.dwDrawStage OF
+      CDDS_PREPAINT:
+          begin
+              Rslt := CDRF_NOTIFYITEMDRAW;
+              Result := TRUE;
+              Exit;
+          end;
+      CDDS_ITEMPREPAINT:
+          begin
+              Rslt := CDRF_NOTIFYITEMDRAW or CDRF_DODEFAULT;
+          end;
+      END;
+      ItemIdx := NMCustDraw.nmcd.dwItemSpec;
+      ItemState := [ ];
+      if  ItemIdx >= 0 then
+      begin
+          S := Sender.LVItemState[ ItemIdx ];
+          if  lvisFocus in S then
+              include( ItemState, odsFocused );
+          if  lvisSelect in S then
+              include( ItemState, odsSelected );
+          if  lvisBlend in S then
+              include( ItemState, odsGrayed );
+          if  lvisHighlight in S then
+              include( ItemState, odsMarked );
+      end;
+      was_clrText := NMCustDraw.clrText;
+      was_clrTextBk := NMCustDraw.clrTextBk;
+      for SubItemIdx := 0 to Sender.LVColCount-1 do
+      begin
+          R := Sender.LVSubItemRect( ItemIdx, SubItemIdx );
+          if   0 = Sender.EV.FOnLVCustomDraw( Sender, NMCustDraw.nmcd.hdc, 0,
+               ItemIdx, SubItemIdx, R,
+               ItemState, TColor( NMCustDraw.clrText ), TColor( NMCustDraw.clrTextBk ) )
+             then
+          begin
+              Rslt := CDRF_DODEFAULT; {вернули FALSE - не хотят рисовать, тогда по умолчанию}
+              break;
+          end
+             else
+          if  (was_clrText <> NMCustDraw.clrText) or
+              (was_clrTextBk <> NMCustDraw.clrTextBk) then
+          begin
+              Rslt := CDRF_NEWFONT; {поменяли цвет текста или фона - рисование по умолчанию, но с новыми цветами}
+              break;
+          end;
+      end;
+      Result := TRUE;
+    end;
+  end;
+end;
+
+procedure TControl.SetOnLVSubitemDraw(const Value: TOnLVSubitemDraw);
+begin
+  {$IFDEF EVENTS_DYNAMIC} ProvideUniqueEvents {$ELSE} EV {$ENDIF}
+  .fOnLVCustomDraw := TOnLVCustomDraw( Value );
+  AttachProc( @WndProc_LVSubitemDraw );
 end;
 
 function CompareLVItems( Idx1, Idx2: Integer; ListView: PControl ): Integer; stdcall;
@@ -61714,6 +61922,8 @@ function TControl.Get_OnDrawItem: TOnDrawItem;
 begin Result := EV.fOnDrawItem; end;
 function TControl.Get_OnLVCustomDraw: TOnLVCustomDraw;
 begin Result := EV.fOnLVCustomDraw; end;
+function TControl.Get_OnLVSubitemDraw: TOnLVSubitemDraw;
+begin Result := TOnLVSubitemDraw( EV.fOnLVCustomDraw ); end;
 function TControl.Get_OnTVBeginDrag: TOnTVBeginDrag;
 begin Result := EV.FOnTVBeginDrag; end;
 procedure TControl.Set_OnTVBeginDrag(const Value: TOnTVBeginDrag);

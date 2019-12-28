@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 // KOL_ASM.inc (to inlude in KOL.pas)
-// v 3.17
+// v 3.19
 
 function MsgBox( const S: KOLString; Flags: DWORD ): DWORD;
 asm
@@ -2800,6 +2800,7 @@ asm
         POP      EBP
 end;
 
+{$IFDEF fixed_asm}
 function File2Str( Handle: THandle): AnsiString;
 asm
         PUSH     EDX
@@ -2864,6 +2865,7 @@ asm
         CALL     System.@FreeMem
 @@fin:
 end;
+{$ENDIF}
 
 function FileWrite( Handle: THandle; const Buffer; Count: DWord): DWord;
 asm
@@ -12023,6 +12025,157 @@ asm
         CALL     LoadFromStream
         POP      EAX
         CALL     TObj.RefDec
+end;
+
+function MoveTetrades(Mem, From:PByte; Size: Integer;incFrom,
+         xx: Integer): Integer;
+asm
+         PUSH EBX
+         MOV  EBX, ECX
+         INC  EBX
+         SHR  EBX, 1
+         TEST BL, 1
+         JZ   @@0
+         INC  EBX
+@@0:
+         PUSH EBX  // Result := (Size+1)shr 1; if  (Result and 1) <> 0 then inc(Result);
+         XOR  EBX, EBX // BH = ff = 0
+@@1:
+         MOV  BL, [EDX]
+         TEST BH, 1
+         JZ   @@2
+         ADD  EDX, [incFrom] //[EBP+12] // inc(From, incFrom)
+         AND  BL, $0F
+         JMP  @@3
+@@2:     SHR  BL, 4
+@@3:
+         TEST BYTE PTR [xx], 1 //[EBP+8], 1
+         JZ   @@4
+         {$IFNDEF SMALLER_CODE}
+         AND  byte ptr [EAX], $F0
+         {$ENDIF}
+         OR   byte ptr [EAX], BL
+         INC  EAX
+         JMP  @@5
+@@4:     SHL  BL, 4
+         MOV  byte ptr [EAX], BL
+@@5:
+         INC  dword ptr [xx] //[EBP+8]
+         INC  BH
+         LOOP @@1
+
+         POP  EAX
+         POP  EBX
+end;
+
+function MoveRLEdata(Mem, From:PByte;Size: Integer;incFrom,
+         xx: Integer): Integer;
+asm
+         PUSH EBX
+         MOV  EBX, ECX
+         INC  EBX
+         AND  BL, $FE
+         PUSH EBX
+@@1:
+         MOV  BL, byte ptr [EDX]
+         MOV  byte ptr [EAX], BL
+         INC  EAX
+         ADD  EDX, [incFrom]
+         LOOP @@1
+
+         POP  EAX
+         POP  EBX
+end;
+
+procedure DecodeRLE(Bmp:PBitmap;Data:Pointer; MaxSize: DWORD;
+    MoveDataFun: TMoveData; shr_x: Integer);
+asm
+          PUSHAD
+          MOV  ESI, EAX
+          XCHG EDI, EDX
+          PUSH EDI // [ESP+12] = Data
+          PUSH ECX // [ESP+8] = MaxSize
+          CALL TBitmap.GetScanLineSize
+          PUSH 0 // [ESP+4] = X
+          PUSH 0 // [ESP+0] = Y
+          DEC  EDI
+@@1:
+          INC  EDI
+          MOV  EAX, [ESI].TBitmap.FHeight
+          CMP  dword ptr [ESP], EAX
+          JGE  @@end_while
+          MOV  EAX, EDI
+          SUB  EAX, dword ptr [ESP+12]
+          CMP  EAX, dword ptr [ESP+8]
+          JGE  @@end_while
+
+          MOV  BL, byte ptr [EDI]
+          TEST BL, BL
+          JNZ  @@nozero
+          INC  EDI
+          MOV  BL, byte ptr [EDI]
+          MOVZX ECX, BL
+          INC  ECX
+          LOOP @@z1
+          INC  dword ptr [ESP] // inc(Y);
+          MOV  dword ptr [ESP+4], ECX // X := 0;
+          JMP  @@1
+@@z1:
+          LOOP @@z2
+          JMP  @@end_while
+@@z2:
+          LOOP @@z3
+          INC  EDI
+          MOVZX EAX, byte ptr [EDI]
+          ADD  dword ptr [ESP+4], EAX
+          INC  EDI
+          MOVZX EAX, byte ptr [EDI]
+          ADD  dword ptr [ESP], EAX
+          JMP  @@1
+@@z3:
+          MOV  BH, 1
+          CALL @@call_move_data
+          ADD  EDI, EAX
+          DEC  EDI
+          JMP  @@1
+@@nozero:
+          MOV  BH, 0
+          CALL @@call_move_data
+          JMP  @@1
+
+@@call_move_data:
+          INC  EDI
+          XOR  EAX, EAX
+          MOVZX EDX, BL // Z
+          MOV  ECX, dword ptr [ESP+4+4] //X
+          ADD  EDX, ECX
+          CMP  EDX, [ESI].TBitmap.FWidth
+          JG   @@no_move
+          MOVZX EAX, BH
+          PUSH EAX            //... , 1 or 0, x)
+          PUSH ECX            //... , x)
+          MOV  EAX, dword ptr [ESI].TBitmap.fScanLineSize
+          MOV  EDX, dword ptr [ESP+0+4+8] // Y
+          MUL  EDX
+          ADD  EAX, dword ptr [ESI].TBitmap.fDIBBits
+          MOV  EDX, dword ptr [ESP+4+4+8] // X
+          MOV  CL, byte ptr[shr_x]
+          SHR  EDX, CL
+          ADD  EAX, EDX
+          MOV  EDX, EDI
+          MOVZX ECX, BL
+          CALL dword ptr [MoveDataFun]
+          MOVZX ECX, BL
+          ADD  dword ptr [ESP+4+4], ECX // inc(x, z)
+@@no_move:
+          RET
+
+@@end_while:
+          POP  EDX
+          POP  EDX
+          POP  ECX
+          POP  EDI
+          POPAD
 end;
 
 function TBitmap.ReleaseHandle: HBitmap;
