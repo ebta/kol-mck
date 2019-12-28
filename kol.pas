@@ -14,7 +14,7 @@
   Key Objects Library (C) 2000 by Vladimir Kladov.
 
 ****************************************************************
-* VERSION 3.17
+* VERSION 3.18
 ****************************************************************
 
   K.O.L. - is a set of objects and functions to create small programs
@@ -37,6 +37,14 @@
 ****************************************************************}
 
 {$I KOLDEF.inc}
+
+{$IFDEF x64}
+    {$DEFINE PAS_ONLY}
+{$ENDIF}
+{$IFDEF PAS_ONLY}
+    {$DEFINE PAS_VERSION}
+{$ENDIF}
+
 {$IFDEF EXTERNAL_KOLDEFS}
   {$INCLUDE PROJECT_KOL_DEFS.INC}
 {$ENDIF}
@@ -717,7 +725,8 @@ type
   {* }
 
    PPointerList = ^TPointerList;
-   TPointerList = array[0..MaxInt div 4 - 1] of Pointer;
+   TPointerList = array[0..{$IFDEF _DXE2orHigher} 65536
+                           {$ELSE} MaxInt div 4 - 1 {$ENDIF}] of Pointer;
 
   TObjectMethod = procedure of object;
   {* }
@@ -985,9 +994,11 @@ function NewListInit( const AItems: array of Pointer ): PList;
 {$ENDIF}
 
 {$IFNDEF TLIST_FAST}
+{$IFNDEF PAS_ONLY}
 procedure FastIncNum2Elements( List: TList; FromIdx, Count, Value: Integer );
 {* Very fast adds Value to List elements from List[FromIdx] to List[FromIdx+Count-1].
    Given elements must exist. Count must be > 0. }
+{$ENDIF}
 {$ENDIF}
 
 procedure Free_And_Nil( var Obj );
@@ -11153,9 +11164,11 @@ procedure ShowMessage( const S: KOLString );
 {* Like ShowMsg, but has only styles MB_OK and MB_SETFOREGROUND. }
 {$ENDIF GDI}
 {$IFDEF WIN}
+{$IFNDEF PAS_ONLY}
 procedure SpeakerBeep( Freq: Word; Duration: DWORD );
 {* On Windows NT, calls Windows.Beep. On Windows 9x, produces beep on speaker
    of desired frequency during given duration time (in milliseconds). }
+{$ENDIF PAS_ONLY}
 {$ENDIF WIN}
 
 function SysErrorMessage(ErrorCode: Integer): KOLString;
@@ -11185,6 +11198,7 @@ type
 
 function MakeInt64( Lo, Hi: DWORD ): I64;
 {* }
+{$IFNDEF PAS_ONLY}
 function Int2Int64( X: Integer ): I64;
 {* }
 procedure IncInt64( var I64: I64; Delta: Integer );
@@ -11228,6 +11242,7 @@ function Str2Int64( const S: AnsiString ): I64;
 function Int64_2Double( const X: I64 ): Double;
 {* }
 function Double2Int64( D: Double ): I64;
+{$ENDIF PAS_ONLY}
 {*
 
   <R Floating point numbers>
@@ -11258,7 +11273,9 @@ function Extended2StrDigits( D: Double; n: Integer ): KOLString;
    following floating point. }
 function Double2StrEx( D: Double ): KOLString;
 {* experimental, do not use }
+{$IFNDEF PAS_ONLY}
 function TruncD( D: Double ): Double;
+{$ENDIF}
 {* Result := trunc( D ) as Double;
 |<hr>
 
@@ -11410,7 +11427,9 @@ function InsertSeparators( const s: KOLString; chars_between: Integer;
    Int2Ths function. }
 {$IFDEF WIN}
 {$IFNDEF _FPC}
+//{$IFNDEF PAS_ONLY}
 function Format( const fmt: KOLString; params: array of const ): KOLString;
+//{$ENDIF}
 {* Uses API call to wvsprintf, so does not understand extra formats,
    such as floating point, date/time, currency conversions. See list of
    available formats in win32.hlp (topic wsprintf).
@@ -11422,6 +11441,11 @@ function Format( const fmt: KOLString; params: array of const ): KOLString;
 {$ENDIF WIN}
 function StrComp(const Str1, Str2: PAnsiChar): Integer;
 {* Compares two strings fast. -1: Str1<Str2; 0: Str1=Str2; +1: Str1>Str2 }
+
+{$IFDEF PAS_ONLY}
+function StrComp_NoCase(const Str1, Str2: PAnsiChar): Integer;
+function StrLComp_NoCase(const Str1, Str2: PAnsiChar; MaxLen: Cardinal): Integer;
+{$ELSE}
 {$IFDEF SMALLER_CODE}
 function StrComp_NoCase(const Str1, Str2: PAnsiChar): Integer;
 {* Compares two strings fast without case sensitivity.
@@ -11438,6 +11462,7 @@ var StrComp_NoCase: function(const Str1, Str2: PAnsiChar): Integer = StrComp_NoC
    Returns: -1 when Str1<Str2; 0 when Str1=Str2; +1 when Str1>Str2 }
 function StrLComp_NoCase1(const Str1, Str2: PAnsiChar; MaxLen: Cardinal): Integer;
 var StrLComp_NoCase: function(const Str1, Str2: PAnsiChar; MaxLen: Cardinal): Integer = StrLComp_NoCase1;
+{$ENDIF}
 {$ENDIF}
 
 function StrLComp(const Str1, Str2: PAnsiChar; MaxLen: Cardinal): Integer;
@@ -11459,7 +11484,7 @@ function StrScanLen(Str: PAnsiChar; Chr: AnsiChar; Len: Integer): PAnsiChar;
 function StrScan(Str: PAnsiChar; Chr: AnsiChar): PAnsiChar;
 {* Fast search of given character in a string. Pointer to found character
    (or nil) is returned. }
-function StrRScan(const Str: PAnsiChar; Chr: AnsiChar): PAnsiChar;
+function StrRScan(Str: PAnsiChar; Chr: AnsiChar): PAnsiChar;
 {* StrRScan returns a pointer to the last occurrence of Chr in Str. If Chr
   does not occur in Str, StrRScan returns NIL. The null terminator is
   considered to be part of the string. }
@@ -12307,7 +12332,9 @@ function DeleteFile2Recycle( const Filename : KOLString ) : Boolean;
    used or not fully qualified paths to files. }
 function CopyMoveFiles( const FromList, ToList: KOLString; Move: Boolean ): Boolean;
 {* }
-function DiskFreeSpace( const Path: KOLString ): I64; 
+{$IFNDEF PAS_ONLY}
+function DiskFreeSpace( const Path: KOLString ): I64;
+{$ENDIF}
 {* Returns disk free space in bytes. Pass a path to root directory,
    e.g. 'C:\'.
   |<hr>
@@ -12546,8 +12573,10 @@ function NewDirListEx( const DirPath, Filters: KOLString; Attr: DWORD ): PDirLis
 const DefSortDirRules : array[ 0..3 ] of TSortDirRules = ( sdrFoldersFirst,
       sdrByName, sdrBySize, sdrByDateCreate );
 {* Default rules to sort directory entries. }
+{$IFNDEF PAS_ONLY}
 function DirectorySize( const Path: KOLString ): I64;
 {* Returns directory size in bytes as large 64 bit integer. }
+{$ENDIF}
 
 {$IFDEF WIN_GDI} //vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 type
@@ -13446,7 +13475,9 @@ function ParamCount: Integer;
 
 {$IFDEF WIN_GDI}
 //{$DEFINE CHK_BITBLT}
+{$IFDEF CHK_BITBLT}
 procedure Chk_BitBlt;
+{$ENDIF}
 {$IFDEF ASM_VERSION}
   {$DEFINE ASM_DC}
 {$ENDIF}
@@ -14258,6 +14289,7 @@ type TOverrideScrollbarsProc = procedure(Sender: PControl);
 procedure DummyOverrideScrollbars(Sender: PControl);
 var OverrideScrollbars: TOverrideScrollbarsProc = DummyOverrideScrollbars;
 
+{$IFNDEF PAS_ONLY}
 function CrackStack_MapInResource( const MapName: KOLString; Max_length: Integer;
     HandleSuspiciousAddresses: Boolean ): KOLString;
 {* Allows to list all procedures and functions called before current cracking
@@ -14275,11 +14307,13 @@ function CrackStack_MapInFile( const MapFileName: KOLString; Max_length: Integer
    to show all suspicious addresses found in stack (this may help to find
    errors not shown even by Delphi debugger since stack frames in some cases give
    no enough data). }
-
+{$ENDIF}
 //......... these declarations are here to stop hints from Delphi5 while compiling MCK:
 function CallTControlCreateWindow( Ctl: PControl ): Boolean;
 function DumpWindowed( c: PControl ): PControl;
+{$IFNDEF PAS_ONLY}
 function WndProcAppAsm( Self_: PControl; var Msg: TMsg; var Rslt: Integer ): Boolean;
+{$ENDIF}
 //22{$IFDEF ASM_VERSION}
 const ButtonClass: array[ 0..6 ] of KOLChar = ( 'B','U','T','T','O','N',#0 );
 //22{$ENDIF ASM_VERSION}
@@ -14287,7 +14321,7 @@ const ButtonClass: array[ 0..6 ] of KOLChar = ( 'B','U','T','T','O','N',#0 );
 function WndProcUnicodeChars( Sender: PControl; var Msg: TMsg; var Rslt: Integer ): Boolean;
 {$ENDIF}
 procedure SetMouseEvent( Self_: PControl );
-function CompareIntegers( const Sender : Pointer; const e1, e2 : DWORD ) : Integer; 
+function CompareIntegers( const Sender : Pointer; const e1, e2 : DWORD ) : Integer;
 function CompareDwords( const Sender : Pointer; const e1, e2 : DWORD ) : Integer;
 procedure SwapIntegers( const Sender : Pointer; const e1, e2 : DWORD );
 function _GetDIBPixelsTrueColorAlpha( Bmp: PBitmap; X, Y: Integer ): TColor;
@@ -14672,6 +14706,7 @@ function ChooseColor(var CC: TChooseColor): Bool; stdcall;
          external 'comdlg32.dll'  name 'ChooseColorA';
 
 {$IFDEF GDI}
+{$IFDEF CHK_BITBLT}
 procedure Chk_BitBlt_ShowError;
 var Rslt: Integer;
 begin
@@ -14694,6 +14729,7 @@ begin
     end;
   end;
 end;
+{$ENDIF CHK_BITBLT}
 {$ENDIF GDI}
 
 {$ifdef _D2}
@@ -14755,6 +14791,7 @@ end;
 {$endif}
 
 {$IFDEF _D2009orHigher}
+{$IFNDEF PAS_ONLY}
 procedure _aLStrFromPCharLen(var Dest: AnsiString; Source: PAnsiChar; Length: Integer);
 asm
   push 0
@@ -14768,6 +14805,7 @@ asm
   CALL System.@LStrFromPChar
   pop ecx
 end;
+{$ENDIF}
 {$ENDIF}
 
 procedure InitCommonControls; external cctrl name 'InitCommonControls';
@@ -14924,6 +14962,7 @@ function WndProcDateTimePickerNotify( Self_: PControl; var Msg: TMsg;
          var Rslt: Integer ): Boolean; forward;
 
 ////////////////////////////////////////////////////////////////////////////////
+{$IFNDEF PAS_ONLY}
 var MapFile: PKOLStrList;
     LineNumbersFrom: Integer;
     MaxCrackStackLen: Integer;
@@ -15203,6 +15242,7 @@ begin
     if MapFile = nil then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
     Result := CrackStack( Max_length, HandleSuspiciousAddresses );
 end;
+{$ENDIF _no_PAS_ONLY}
 
 {$IFDEF GRAPHCTL_XPSTYLES}
  {$I visual_xp_styles.inc}
@@ -15331,6 +15371,12 @@ end;
 {$ENDIF GDI}
 
 {$IFDEF WIN_GDI}
+{$IFDEF PAS_ONLY}
+procedure SpeakerBeep( Freq: Word; Duration: DWORD );
+begin
+    Windows.Beep( Freq, Duration );
+end;
+{$ELSE}
 procedure SpeakerBeep( Freq: Word; Duration: DWORD );
 begin
   if WinVer >= wvNT then
@@ -15360,6 +15406,7 @@ begin
     end {$IFDEF F_P} [ 'EAX' ] {$ENDIF} ;
   end;
 end;
+{$ENDIF}
 {$ENDIF WIN_GDI}
 
 function SysErrorMessage(ErrorCode: Integer): KOLString;
@@ -16246,6 +16293,7 @@ begin
 end;
 {$ENDIF}
 
+{$IFNDEF PAS_ONLY}
 procedure HelpFastIncNum2Els( DataArray: Pointer; Value, Count: Integer );
 asm
   PUSH ESI
@@ -16276,6 +16324,7 @@ begin
   HelpFastIncNum2Els( @List.fItems[ FromIdx ], Value, Count );
 end;
 {$ENDIF}
+{$ENDIF PAS_ONLY}
 
 {$IFDEF ASM_VERSION}{$ELSE PAS_VERSION} //Pascal
 destructor TList.Destroy;
@@ -16746,7 +16795,7 @@ var I: Integer;
     {$ENDIF}
 begin
   Result := -1;
-  {$IFDEF DEBUG}
+  {$IFDEF DEBUG_ANY}
   TRY
   {$ENDIF}
      {$IFDEF TLIST_FAST}
@@ -16779,7 +16828,7 @@ begin
              end;
          end;
      end;
-  {$IFDEF DEBUG}
+  {$IFDEF DEBUG_ANY}
   EXCEPT
   END;
   {$ENDIF}
@@ -19387,6 +19436,8 @@ begin
   Result.Hi := Hi;
 end;
 
+{$IFDEF PAS_ONLY}
+{$ELSE}
 function Int2Int64( X: Integer ): I64;
 asm
   MOV  [EDX], EAX
@@ -19621,6 +19672,7 @@ asm
   FLD   D
   FISTP qword ptr [EAX]
 end;
+{$ENDIF PAS_ONLY}
 
 function IsNan(const AValue: Double): Boolean;
 {$IFDEF _D2orD3}
@@ -19640,8 +19692,11 @@ begin
             (PI64(@AValue).Hi and $000FFFFF = $00000000);
 end;
 
+{$IFDEF PAS_ONLY} {$DEFINE PAS_INTPOW} {$ENDIF}
+{$IFDEF F_P}      {$DEFINE PAS_INTPOW} {$ENDIF}
+
 function IntPower(Base: Extended; Exponent: Integer): Extended;
-{$IFDEF F_P}
+{$IFDEF PAS_ONLY}
 begin
   Result := 1.0;
   if Exponent = 0 then exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
@@ -19675,7 +19730,7 @@ asm
         fstp    st       { pop X from FPU stack }
 @@3:    fwait
 end;
-{$ENDIF F_P/DELPHI}
+{$ENDIF PAS_ONLY}
 
 function NextPowerOf2( n: DWORD ): DWORD;
 begin
@@ -19766,6 +19821,7 @@ begin
     Result := -Result;
 end;
 
+{$IFNDEF PAS_ONLY}
 function TruncD( D: Double ): Double;
 asm
   FLD    D
@@ -19782,6 +19838,7 @@ asm
   POP    ECX
   POP    ECX
 end;
+{$ENDIF}
 
 function IfThenElseBool( t, e: Boolean; Cond: Boolean ): Boolean;
 begin
@@ -19892,11 +19949,16 @@ begin
 
   while TRUE do
   begin
+    {$IFDEF PAS_ONLY}
+    if TRUNC(Abs(E)) >= 10000000 then
+       break;
+    {$ELSE}
     asm
       FLD    [E]
       FBSTP  [Buf1]
     end;
     if Buf1[ 7 ] <> 0 then break;
+    {$ENDIF}
     E := E * I10;
     Dec( N );
   end;
@@ -20429,6 +20491,15 @@ begin
 end;
 {$ENDIF PAS_VERSION}
 
+{$IFDEF PAS_ONLY}
+function StrCopy( Dest, Source: PAnsiChar ): PAnsiChar;
+var L: Integer;
+begin
+    L := StrLen(Source);
+    Move(Source^, Dest^, L+1);
+    Result := Dest;
+end;
+{$ELSE}
 function StrCopy( Dest, Source: PAnsiChar ): PAnsiChar; assembler;
 asm
   {$IFDEF F_P}
@@ -20455,6 +20526,7 @@ asm
         POP     ESI
         POP     EDI
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
+{$ENDIF PAS_ONLY}
 
 function StrCat( Dest, Source: PAnsiChar ): PAnsiChar;
 begin
@@ -20462,6 +20534,17 @@ begin
   Result := Dest;
 end;
 
+{$IFDEF PAS_ONLY}
+function StrScan(Str: PAnsiChar; Chr: AnsiChar): PAnsiChar;
+begin
+    while Str^ <> Chr do
+    begin
+        if Str^ = #0 then break;
+        inc(Str);
+    end;
+    Result := Str;
+end;
+{$ELSE}
 function StrScan(Str: PAnsiChar; Chr: AnsiChar): PAnsiChar; assembler;
 asm
   {$IFDEF F_P}
@@ -20488,8 +20571,22 @@ asm
 
 @@1:    DEC     EAX
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
+{$ENDIF PAS_ONLY}
 
-function StrRScan(const Str: PAnsiChar; Chr: AnsiChar): PAnsiChar; assembler;
+{$IFDEF PAS_ONLY}
+function StrRScan(Str: PAnsiChar; Chr: AnsiChar): PAnsiChar;
+begin
+    Result := nil;
+    while Str^ <> #0 do
+    begin
+        if Str^ = Chr then Result := Str;
+        inc(Str);
+    end;
+    if Result = nil then
+       Result := Str;
+end;
+{$ELSE}
+function StrRScan(Str: PAnsiChar; Chr: AnsiChar): PAnsiChar; assembler;
 asm
   {$IFDEF F_P}
         MOV     EAX, [Str]
@@ -20512,7 +20609,20 @@ asm
 @@1:    CLD
         POP     EDI
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
+{$ENDIF PAS_ONLY}
 
+{$IFDEF PAS_ONLY}
+function StrScanLen(Str: PAnsiChar; Chr: AnsiChar; Len: Integer): PAnsiChar;
+begin
+    while (Str^ <> #0) and (Len > 0) do
+    begin
+        if Str^ = Chr then break;
+        inc(Str);
+        dec(Len);
+    end;
+    Result := Str;
+end;
+{$ELSE}
 function StrScanLen(Str: PAnsiChar; Chr: AnsiChar; Len: Integer): PAnsiChar; assembler;
 asm
   {$IFDEF F_P}
@@ -20529,6 +20639,7 @@ asm
         { -> EAX => to next character after found or to the end of Str,
              ZF = 0 if character found. }
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
+{$ENDIF}
 
 {$IFDEF ASM_UNICODE}{$ELSE PAS_VERSION} //Pascal
 function TrimLeft(const S: KOLString): KOLString;
@@ -20568,6 +20679,17 @@ begin
     if S[ I ] <= ' ' then Delete( Result, I, 1 );
 end;
 
+{$IFDEF PAS_ONLY}
+procedure Str2LowerCase( S: PAnsiChar );
+begin
+    while S^ <> #0 do
+    begin
+        if (S^ >= 'A') and (S^ <= 'Z') then
+            S^ := AnsiChar(Ord(S^)+32);
+        inc(S);
+    end;
+end;
+{$ELSE}
 procedure Str2LowerCase( S: PAnsiChar );
 asm
   {$IFDEF F_P}
@@ -20585,6 +20707,7 @@ asm
         JMP      @@1
 @@exit:
 end {$IFDEF F_P} [ 'EAX', 'ECX' ] {$ENDIF};
+{$ENDIF PAS_ONLY}
 
 {$IFDEF ASM_VERSION}{$ELSE PAS_VERSION} //Pascal
 function LowerCase(const S: Ansistring): Ansistring;
@@ -21035,6 +21158,24 @@ begin
   end;
 end;
 
+{$IFDEF PAS_ONLY}
+function CompareMem(P1, P2: Pointer; Length: Integer): Boolean;
+var PP1, PP2: PByte;
+begin
+    Result := FALSE;
+    PP1 := P1;
+    PP2 := P2;
+    while (Length > 0) do
+    begin
+        if  (PP1^ <> PP2^) then
+            Exit; //>>>>>>>>>>>>>>>>>>>>>>>>
+        inc(PP1);
+        inc(PP2);
+        dec(Length);
+    end;
+    Result := TRUE;
+end;
+{$ELSE}
 function CompareMem(P1, P2: Pointer; Length: Integer): Boolean; assembler;
 asm
   {$IFDEF F_P}
@@ -21060,6 +21201,7 @@ asm
 @@2:    POP     EDI
         POP     ESI
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
+{$ENDIF}
 
 {$IFDEF ASM_VERSION}{$ELSE PAS_VERSION} //Pascal
 function AllocMem( Size : Integer ) : Pointer;
@@ -21194,6 +21336,18 @@ begin
 end;
 {$ENDIF}
 
+{$IFDEF PAS_ONLY}
+function _WStrLComp(S1, S2: PWideChar; Len: Integer): Integer;
+begin
+    while (Len > 0) and (S1^ <> #0) and (S2^ <> #0) do
+    begin
+        Result :=  Ord(S1^) - Ord(S2^);
+        if Result <> 0 then Exit; // >>>>>>>>>>>>>>>>>>>>
+        dec(Len);
+    end;
+    Result := 0;
+end;
+{$ELSE}
 function _WStrLComp(S1, S2: PWideChar; Len: Integer): Integer;
 asm
   {$IFDEF F_P}
@@ -21213,7 +21367,7 @@ asm
         POP     ESI
         POP     EDI
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
-
+{$ENDIF}
 
 function WStrScan(Str: PWideChar; Chr: WideChar): PWideChar;
 begin
@@ -21281,9 +21435,18 @@ begin
 end;
 
 procedure SwapAnsiRec( R: PSortAnsiRec; const e1, e2: Integer );
+{$IFDEF PAS_ONLY}
+var a: PAnsiChar;
+{$ENDIF}
 begin
+    {$IFDEF PAS_ONLY}
+    a := R.A[AnsiChar(e1)];
+    R.A[AnsiChar(e1)] := R.A[AnsiChar(e2)];
+    R.A[AnsiChar(e2)] := a;
+    {$ELSE}
     Swap( Integer( R.A[AnsiChar(e1)] ),
           Integer( R.A[AnsiChar(e2)] ) );
+    {$ENDIF}
 end;
 
 {$IFDEF ASM_VERSION}{$ELSE PAS_VERSION}
@@ -21413,6 +21576,9 @@ var c: AnsiChar;
     R: TSortAnsiRec;
     Buf: array[ 0..767 ] of AnsiChar;
     P: PAnsiChar;
+    {$IFDEF PAS_ONLY}
+    a: PAnsiChar;
+    {$ENDIF}
 begin
     P := @Buf[0];
     for c := Low(c) to High(c) do
@@ -21434,7 +21600,13 @@ begin
         begin
             if  _AnsiCompareStrA( R.A[Pred(c)], R.A[c] ) < 0 then
             begin
+                {$IFDEF PAS_ONLY}
+                a := R.A[Pred(c)];
+                R.A[Pred(c)] := R.A[c];
+                R.A[c] := a;
+                {$ELSE}
                 Swap( Integer( R.A[Pred(c)] ), Integer( R.A[c] ) );
+                {$ENDIF}
             end;
         end;
         //   R.X[c] := R.X[Pred(c)];
@@ -21455,6 +21627,22 @@ begin
   Result := AnsiCompareStrNoCaseA( S1, S2 );
 end;
 
+{$IFDEF PAS_ONLY}
+function StrLCopy(Dest: PAnsiChar; const Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar;
+var Src: PAnsiChar;
+begin
+    Src := Source;
+    while MaxLen > 0 do
+    begin
+        Dest^ := Src^;
+        if Src^ = #0 then break;
+        inc(Dest);
+        inc(Src);
+        dec(MaxLen);
+    end;
+    Result := Dest;
+end;
+{$ELSE}
 function StrLCopy(Dest: PAnsiChar; const Source: PAnsiChar; MaxLen: Cardinal): PAnsiChar; assembler;
 asm
   {$IFDEF F_P}
@@ -21490,6 +21678,7 @@ asm
         POP     ESI
         POP     EDI
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
+{$ENDIF}
 
 {$IFDEF ASM_VERSION}{$ELSE PAS_VERSION} //Pascal
 function StrPCopy(Dest: PAnsiChar; const Source: Ansistring): PAnsiChar;
@@ -21677,7 +21866,7 @@ begin
   Move( W[ From ], Result[ 1 ], Count * Sizeof( WideChar ) );
 end;
 
-function posW( const S1, S2: AnsiString ): Integer;
+function posW( const S1, S2: AnsiString ): Integer;  // not used. When use, change AnsiString to WideString ?
 var I, L1: Integer;
 begin
   L1 := Length( S1 );
@@ -21858,6 +22047,22 @@ begin
   end;
 end;
 
+{$IFDEF PAS_ONLY}
+function StrComp(const Str1, Str2: PAnsiChar): Integer;
+var S1, S2: PAnsiChar;
+begin
+    S1 := Str1;
+    S2 := Str2;
+    while (S1^ <> #0) and (S2^ <> #0) do
+    begin
+        Result := Integer(Ord(S1^)) - Integer(Ord(S2^));
+        if Result <> 0 then Exit;
+        inc(S1);
+        inc(S2);
+    end;
+    Result := 0;
+end;
+{$ELSE}
 function StrComp(const Str1, Str2: PAnsiChar): Integer; assembler;
 asm
   {$IFDEF F_P}
@@ -21881,6 +22086,7 @@ asm
         POP     ESI
         POP     EDI
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
+{$ENDIF PAS_ONLY}
 
 var Upper: array[ AnsiChar ] of AnsiChar;
     Upper_initialized: Boolean;
@@ -21899,6 +22105,72 @@ begin
         Upper_initialized := TRUE;
     end;
 end;
+
+{$IFDEF PAS_ONLY}
+function StrLComp(const Str1, Str2: PAnsiChar; MaxLen: Cardinal): Integer;
+var S1, S2: PAnsiChar;
+    c1, c2: AnsiChar;
+begin
+    S1 := Str1;
+    S2 := Str2;
+    while (S1^ <> #0) and (S2^ <> #0) and (MaxLen > 0) do
+    begin
+        c1 := S1^;
+        c2 := S2^;
+        Result := Integer(c1) - Integer(c2);
+        if Result <> 0 then Exit;
+        inc(S1);
+        inc(S2);
+        dec(MaxLen);
+    end;
+    Result := 0;
+end;
+
+function StrLComp_NoCase(const Str1, Str2: PAnsiChar;  MaxLen: Cardinal): Integer;
+var S1, S2: PAnsiChar;
+    c1, c2: AnsiChar;
+begin
+    S1 := Str1;
+    S2 := Str2;
+    while (S1^ <> #0) and (S2^ <> #0) and (MaxLen > 0) do
+    begin
+        c1 := S1^;
+        if (c1 >= 'a') and (c1 <= 'z') then
+            c1 := AnsiChar(Ord(c1)-32);
+        c2 := S2^;
+        if (c2 >= 'a') and (c2 <= 'z') then
+            c2 := AnsiChar(Ord(c2)-32);
+        Result := Integer(c1) - Integer(c2);
+        if Result <> 0 then Exit;
+        inc(S1);
+        inc(S2);
+        dec(MaxLen);
+    end;
+    Result := 0;
+end;
+
+function StrComp_NoCase(const Str1, Str2: PAnsiChar): Integer;
+var S1, S2: PAnsiChar;
+    c1, c2: AnsiChar;
+begin
+    S1 := Str1;
+    S2 := Str2;
+    while (S1^ <> #0) and (S2^ <> #0) do
+    begin
+        c1 := S1^;
+        if (c1 >= 'a') and (c1 <= 'z') then
+            c1 := AnsiChar(Ord(c1)-32);
+        c2 := S2^;
+        if (c2 >= 'a') and (c2 <= 'z') then
+            c2 := AnsiChar(Ord(c2)-32);
+        Result := Integer(c1) - Integer(c2);
+        if Result <> 0 then Exit;
+        inc(S1);
+        inc(S2);
+    end;
+    Result := 0;
+end;
+{$ELSE}
 
 {$IFDEF SMALLER_CODE}
 function StrComp_NoCase(const Str1, Str2: PAnsiChar): Integer;
@@ -22088,6 +22360,7 @@ asm
         POP     ESI
         POP     EDI
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
+{$ENDIF PAS_ONLY}
 
 function StrLen(const Str: PAnsiChar): Cardinal; assembler;
 asm
@@ -22299,6 +22572,19 @@ begin
 end;
 {$ENDIF ASM_UNICODE}
 
+{$IFDEF PAS_ONLY}
+function StrIsStartingFromNoCase( Str, Pattern: PAnsiChar ): Boolean;
+begin
+    Result := FALSE;
+    while (Str^ <> #0) and (Pattern^ <> #0) do
+    begin
+        if Str^ <> Pattern^ then Exit;
+        inc(Str^);
+        inc(Pattern^);
+    end;
+    Result := Pattern^ = #0;
+end;
+{$ELSE}
 function StrIsStartingFromNoCase( Str, Pattern: PAnsiChar ): Boolean;
 asm
   {$IFDEF F_P}
@@ -22330,8 +22616,12 @@ asm
         TEST    CL, CL
         SETZ    AL
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
-{$IFDEF WIN}
+{$ENDIF PAS_ONLY}
+
+
 {$IFNDEF _FPC}
+
+{$IFDEF WIN}
 {$IFDEF ASM_UNICODE}{$ELSE PAS_VERSION} //Pascal
 function Format( const fmt: KOLString; params: Array of const ): KOLString;
 var Buffer: array[ 0..1023 ] of KOLChar;
@@ -22381,6 +22671,12 @@ begin
   WideCharToMultiByte(0, 0, Source, Length, Pointer(Result), DestLen, nil, nil);
 end;
 
+{$IFDEF PAS_ONLY}
+function LStrFromPWChar(Source: PWideChar): AnsiString;
+begin
+    Result := AnsiString(WideString(Source));
+end;
+{$ELSE}
 function LStrFromPWChar(Source: PWideChar): AnsiString;
 {* from Delphi5 - because D2 does not contain it. }
 asm
@@ -22409,7 +22705,9 @@ asm
 @@5:    POP     ECX
         JMP     LStrFromPWCharLen
 end {$IFDEF F_P} [ 'EAX', 'EDX', 'ECX' ] {$ENDIF};
-{$ENDIF _FPC}
+{$ENDIF PAS_ONLY}
+
+{$ENDIF not_FPC}
 
 function WCharIn( C: KOLChar; const Chars: array of KOLChar ): Boolean;
 var i: Integer;
@@ -23134,6 +23432,7 @@ begin
   Result := Buffer;
 end;
 
+{$IFNDEF PAS_ONLY}
 function DirectorySize( const Path: KOLString ): I64;
 var DirList: PDirList;
     I: Integer;
@@ -23149,6 +23448,7 @@ begin
   end;
   DirList.Free;
 end;
+{$ENDIF}
 
 {$IFDEF WIN} //vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
 function GetFileList(const dir: KOLString): PKOLStrList;
@@ -23584,6 +23884,7 @@ begin
 
 end;
 
+{$IFNDEF PAS_ONLY}
 function DiskFreeSpace( const Path: KOLString ): I64;
 type TGetDFSEx = function( Path: PKOLChar; CallerFreeBytes, TotalBytes, FreeBytes: Pointer )
                  : Bool; stdcall;
@@ -23624,6 +23925,7 @@ begin
      Result := Mul64i( MakeInt64( SpC * BpS, 0 ), NFC );
   end;
 end;
+{$ENDIF}
 
 function DoFileOp( const FromList, ToList: KOLString; FileOp: UINT; Flags: Word;
   Title: PKOLChar): Boolean;
@@ -23959,9 +24261,9 @@ asm
 
 @@star_d_star:
         DB       '*.*', 0 // PCHAR
-        
+
         {$IFDEF _D2009orHigher}
-        DW       0, 1 
+        DW       0, 1
         {$ENDIF}
         DD       -1, 1
 @@star: DB       '*', 0
@@ -24275,6 +24577,16 @@ begin
       end;
     sdrBySize, sdrBySizeDescending:
       begin
+        {$IFDEF _D5orHigher}
+        sz1 := MakeInt64( Item1.nFileSizeLow, Item1.nFileSizeHigh );
+        sz2 := MakeInt64( Item2.nFileSizeLow, Item2.nFileSizeHigh );
+        if Int64(sz1) < Int64(sz2) then
+           Result := -1
+        else if Int64(sz1) > Int64(sz2) then
+           Result := 1
+        else
+           Result := 0;
+        {$ELSE}
         {$IFDEF _D4orHigher}
         sz1 := MakeInt64( Item1.nFileSizeLow, Item1.nFileSizeHigh );
         sz2 := MakeInt64( Item2.nFileSizeLow, Item2.nFileSizeHigh );
@@ -24288,6 +24600,7 @@ begin
              Result := -1
         else if Item1.nFileSizeLow > Item2.nFileSizeLow then
              Result := 1;
+        {$ENDIF}
         {$ENDIF}
         if  Data.Rules[ I ] = sdrBySizeDescending then
             Result := -Result;
@@ -24873,8 +25186,12 @@ end;
    but it is based on 31-Dec-0000 instead, allowing easy manipulating of dates
    at all Christian era, and all other historical era too. }
 
+{$UNDEF PAS_LOCAL}
+{$IFDEF F_P} {$DEFINE PAS_LOCAL} {$ENDIF}
+{$IFDEF PAS_ONLY} {$DEFINE PAS_LOCAL} {$ENDIF}
+
 procedure DivMod(Dividend: Integer; Divisor: Word; var Result, Remainder: Word);
-{$IFDEF F_P}
+{$IFDEF PAS_ONLY}
 begin
         Result    := Dividend div Divisor;
         Remainder := Dividend mod Divisor;
@@ -25909,7 +26226,7 @@ end;
 
 procedure TThread.SetPriorityCls(Value: Integer);
 begin
-  {$IFDEF DEBUG}
+  {$IFDEF DEBUG_ANY}
   if not SetPriorityClass(GetCurrentProcess, Value) then
   begin
     ShowMessage( SysErrorMessage( GetLastError ) );
@@ -25920,7 +26237,7 @@ begin
   {$ELSE}
   SetPriorityClass(GetCurrentProcess, Value);
   {$ENDIF}
-  {$ENDIF}
+  {$ENDIF DEBUG_ANY}
 end;
 
 procedure TThread.SetThrdPriority(Value: Integer);
@@ -29804,6 +30121,7 @@ END;
 //===================== Applet button ========================//
 
 //22{$IFDEF ASM_VERSION}
+{$IFNDEF PAS_ONLY}
   function WndProcAppAsm(Self_: PControl; var Msg: TMsg; var Rslt: Integer): Boolean;
   asm
           CMP      word ptr [EDX].TMsg.message, WM_SETFOCUS
@@ -29854,6 +30172,7 @@ END;
           XOR      EAX, EAX
   @@exit:
   end;
+{$ENDIF not PAS_ONLY}
 //22{$ENDIF}
 
 function WndProcAppPas(Self_: PControl; var Msg: TMsg; var Rslt: Integer): Boolean;
@@ -35636,7 +35955,7 @@ begin
    /////fHint.Free;
    {$UNDEF destroy}
    {$ENDIF USE_MHTOOLTIP}
-   {$IFDEF DEBUG}
+   {$IFDEF DEBUG_ANY}
    F := nil;
    TRY
      F := ParentForm; // or Applet - for form ???
@@ -35647,7 +35966,7 @@ begin
    END;
    {$ELSE}
    F := ParentForm; // or Applet - for form ???
-   {$ENDIF}
+   {$ENDIF DEBUG_ANY}
    if F <> nil then
    if F.DF.FCurrentControl = @Self then
       F.DF.FCurrentControl := nil;
@@ -35887,7 +36206,7 @@ begin
 end;
 {$ENDIF DEBUG_CREATEWINDOW}
 
-var LockedWindow: HWnd;
+//var LockedWindow: HWnd;
 
 {$IFDEF ASM_UNICODE}{$ELSE PAS_VERSION} //Pascal
 function TControl.CreateWindow: Boolean;
@@ -36316,19 +36635,28 @@ end;
 {$IFDEF ASM_UNICODE}{$ELSE PAS_VERSION} //Pascal
 function WndProcKeybd(Self_: PControl; var Msg: TMsg; var Rslt: Integer): Boolean;
 var C : KOLChar;
+    Key: Integer;
 begin
   Result := True;
   case Msg.message of
     WM_KEYDOWN, WM_SYSKEYDOWN:
+      begin
       {$IFDEF NIL_EVENTS}
       if assigned( Self_.EV.fOnKeyDown ) then
       {$ENDIF}
-         Self_.EV.fOnKeyDown( Self_, Msg.wParam, GetShiftState );
+         Key := Msg.wParam;
+         Self_.EV.fOnKeyDown( Self_, Key, GetShiftState );
+         Msg.wParam := Key;
+      end;
     WM_KEYUP, WM_SYSKEYUP:
+      begin
       {$IFDEF NIL_EVENTS}
       if assigned( Self_.EV.fOnKeyUp ) then
       {$ENDIF}
-         Self_.EV.fOnKeyUp( Self_, Msg.wParam, GetShiftState );
+         Key := Msg.wParam;
+         Self_.EV.fOnKeyUp( Self_, Key, GetShiftState );
+         Msg.wParam := Key;
+      end;
     WM_CHAR, WM_SYSCHAR:
       {$IFDEF NIL_EVENTS}
       if assigned( Self_.EV.fOnChar ) then
@@ -38508,6 +38836,7 @@ end;
 {$IFDEF ASM_VERSION}{$ELSE PAS_VERSION} //Pascal
 function TControl.ProcessMessage: Boolean;
 var Msg: TMsg;
+    P: Windows.PMsg;
 begin
    Result := False;
    if PeekMessage( Msg, 0, 0, 0, PM_REMOVE ) then
@@ -38521,12 +38850,13 @@ begin
         {$ENDIF PROVIDE_EXITCODE}
       end
       else
-      begin  
+      begin
         if not(
            {$IFDEF NIL_EVENTS} Assigned( PP.fExMsgProc ) and {$ENDIF}
            PP.fExMsgProc( @Self, Msg )) then
         begin
-          TranslateMessage( Windows.TMsg( Msg ) );
+          P := Pointer( @Msg );
+          TranslateMessage( P^ );
           DispatchMessage( Msg );
           {$IFDEF PSEUDO_THREADS}
           if Assigned( MainThread ) then
@@ -40582,7 +40912,7 @@ var
   wp: WPARAM;
 begin
   wp := Perform(BM_GETCHECK, 0, 0) and not 3;
-  wp := wp or ord(value);
+  wp := wp or byte(value);
   Perform(BM_SETCHECK, wp, 0);
 end;
 
@@ -40714,18 +41044,19 @@ end;
 function TControl.GetItemsCount: Integer;
 begin
   Result := 0;
-  {$IFDEF DEBUG}
+  {$IFDEF DEBUG_ANY}
   try
-  {$ENDIF}
   if fCommandActions.aGetCount = 0 then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
   Result := Perform( fCommandActions.aGetCount, 0, 0 );
-  {$IFDEF DEBUG}
   except
     asm
       int 3
     end;
   end;
-  {$ENDIF}
+  {$ELSE}
+  if fCommandActions.aGetCount = 0 then Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
+  Result := Perform( fCommandActions.aGetCount, 0, 0 );
+  {$ENDIF DEBUG_ANY}
 end;
 {$ENDIF PAS_VERSION}
 
@@ -43568,6 +43899,17 @@ end;
 {$ENDIF WIN_GDI}
 ////////////////////////////////// EXTENDED STRING LIST OBJECT ////////////////
 
+{$IFDEF PAS_ONLY}
+procedure WStrCopy( Dest, Src: PWideChar );
+begin
+    while Src^ <> #0 do
+    begin
+        Dest^ := Src^;
+        inc(Src);
+        inc(Dest);
+    end;
+end;
+{$ELSE}
 procedure WStrCopy( Dest, Src: PWideChar );
 asm
         PUSH    EDI
@@ -43584,6 +43926,7 @@ asm
         POP     ESI
         POP     EDI
 end;
+{$ENDIF}
 
 procedure WStrLCopy( Dest, Src: PWideChar; MaxLen: Integer );
 begin
@@ -43599,6 +43942,19 @@ begin
   end;
 end;
 
+{$IFDEF PAS_ONLY}
+function WStrCmp( W1, W2: PWideChar ): Integer;
+begin
+    while (W1^ <> #0) and (w2^ <> #0) do
+    begin
+        Result := Integer(Ord(w1^)) - Integer(Ord(w2^));
+        if Result <> 0 then Exit;
+        inc(w1);
+        inc(w2);
+    end;
+    Result := 0;
+end;
+{$ELSE}
 function WStrCmp( W1, W2: PWideChar ): Integer;
 asm
          PUSH     ESI
@@ -43618,6 +43974,7 @@ asm
          POP      EDI
          POP      ESI
 end;
+{$ENDIF}
 
 {$IFDEF _D3orHigher}
 function WStrCmp_NoCase( W1, W2: PWideChar ): Integer;
@@ -46780,10 +47137,10 @@ begin
   Result := LoadBitmap( Instance, BmpRsrcName );
   if Result = 0 then
   begin
-    {$IFDEF DEBUG}
+    {$IFDEF DEBUG_ANY}
     ShowMessage( AnsiString('Can not load bitmap ') + BmpRsrcName + ', error ' +
                  Int2Str( GetLastError ) + ': ' + SysErrorMessage( GetLastError ) );
-    {$ENDIF}
+    {$ENDIF DEBUG_ANY}
     Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
   end;
   DW := GetDesktopWindow;
@@ -48957,7 +49314,7 @@ begin
       fDIBBits := nil;
       fHandle := CreateDIBSection( DC0, fDIBHeader^, DIB_RGB_COLORS,
                     fDIBBits, 0, 0 );
-      {$IFDEF DEBUG}
+      {$IFDEF DEBUG_ANY}
       if fHandle = 0 then
         ShowMessage( 'Can not create DIB section, error: ' + Int2Str( GetLastError ) +
         ', ' + SysErrorMessage( GetLastError ) );
@@ -48966,7 +49323,7 @@ begin
       ASSERT( fHandle <> 0, 'Can not create DIB section, error: ' + Int2Str( GetLastError ) +
       ', ' + SysErrorMessage( GetLastError ) );
       {$ENDIF KOL_ASSERTIONS}
-      {$ENDIF}
+      {$ENDIF DEBUG_ANY}
       ReleaseDC( 0, DC0 );
       if fHandle <> 0 then
       begin
@@ -50162,8 +50519,10 @@ var BFH : TBitmapFileHeader;
            else Strm.WriteVal( 1, 1 ); // EOB
            inc(y);
            if  ( Integer( P ) - Integer( PnextLine ) ) mod Width <> 0 then
-           asm
-             nop
+           begin {$IFNDEF PAS_ONLY}
+             asm
+               nop
+             end;{$ENDIF}
            end;
        end;
        Result := TRUE;
@@ -54859,7 +55218,7 @@ begin
         Self_.Invalidate;
     end;
   CM_NCUPDATE:
-    if  Msg.wParam = Self_.DF.fREUpdCount then
+    if  DWORD(Msg.wParam) = DWORD(Self_.DF.fREUpdCount) then
     begin
         GetWindowRect( Self_.fHandle, R );
         Windows.GetClientRect( Self_.fHandle, CR );

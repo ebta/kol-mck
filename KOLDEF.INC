@@ -171,6 +171,27 @@ Delphi version 8 not supported! (delphi 8 is .net only)
 	{$WARN UNSAFE_CODE OFF}
 {$ENDIF}
 
+{$IFDEF VER230} // Delphi XE
+	{$DEFINE _D3orHigher}
+	{$DEFINE _D4orHigher}
+	{$DEFINE _D5orHigher}
+	{$DEFINE _D6orHigher}
+	{$DEFINE _D7orHigher}
+	{$DEFINE _D2005orHigher}
+	{$DEFINE _D2006orHigher}
+	{$DEFINE _D2007orHigher}
+	{$DEFINE _D2009orHigher}
+	{$DEFINE _D2010orHigher}
+	{$DEFINE _DXE}
+	{$DEFINE _DXEorHigher}
+  {$DEFINE _DXE2orHigher}
+  {$WARN UNIT_DEPRECATED OFF}
+	{$WARN SYMBOL_PLATFORM OFF}
+	{$WARN UNSAFE_TYPE OFF}
+	{$WARN UNSAFE_CAST OFF}
+	{$WARN UNSAFE_CODE OFF}
+{$ENDIF}
+
 // TODO: check DLL project
 {$IFNDEF NO_STRIP_RELOC}
   // by Thaddy de Koning:
@@ -188,7 +209,7 @@ by Thaddy de Koning:
 FPC version 2.1.1 is very compatible with Delphi and kol now.
 You can simply use the $(DELPHI)\source\rtl\win\*.pas files from Delphi 4/5 instead of the prepared files that were needed for 
 FPC1.X
- 
+
 That is all to have full compatibility.
 ------------------------------------}
 {$DEFINE PAS_VERSION}
