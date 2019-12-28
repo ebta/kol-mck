@@ -14,7 +14,7 @@
   Key Objects Library (C) 2000 by Vladimir Kladov.
 
 ****************************************************************
-* VERSION 3.19
+* VERSION 3.20
 ****************************************************************
 
   K.O.L. - is a set of objects and functions to create small programs
@@ -1706,7 +1706,7 @@ type
     procedure SortEx(const CompareFun: TCompareEvent); // by Dufa
     {* Call it to sort via your own compare procedure }
   protected // by Alexander Pravdin:
-    fNameDelim: AnsiChar;
+    fNameDelim: {$IFDEF _D3} KOLChar {$ELSE} AnsiChar {$ENDIF};
     function GetLineName( Idx: Integer ): AnsiString;
     procedure SetLineName( Idx: Integer; const NV: AnsiString );
     function GetLineValue(Idx: Integer): Ansistring;
@@ -1714,7 +1714,7 @@ type
   public
     property LineName[ Idx: Integer ]: Ansistring read GetLineName write SetLineName;
     property LineValue[ Idx: Integer ]: Ansistring read GetLineValue write SetLineValue;
-    property NameDelimiter: AnsiChar read fNameDelim write fNameDelim;
+    property NameDelimiter: {$IFDEF _D3} KOLChar {$ELSE} AnsiChar {$ENDIF} read fNameDelim write fNameDelim;
     function Join( const sep: AnsiString ): AnsiString;
     {* by Sergey Shishmintzev }
     {$IFDEF WIN_GDI}
@@ -8622,6 +8622,12 @@ type
        form on screen. }
     function CenterOnForm( Form1: PControl ): PControl;
     {* Centers form on another form. If Form1 not present, centers on screen. }
+    {$IFDEF _D4orHIGHER}
+    function CenterOnCurrentScreen: PControl;
+    {* |<#form>
+       Centers on a display where a mouse is located now.
+       For forms only. }
+    {$ENDIF}
 
     function Shift( dX, dY : Integer ): PControl;
     {* Moves control respectively to current position (Left := Left + dX,
@@ -10300,6 +10306,10 @@ function ScreenWidth: Integer;
 function ScreenHeight: Integer;
 {* Returns screen height in pixels. }
 
+function MainForm: PControl;
+{* Returns the first child of Applet or Applet itself when App button is not used
+   and Applet actually equals to Main form. }
+
 type
   TStatusOption = ( soNoSizeGrip, soTop );
   {* Options available for status bars. }
@@ -11036,7 +11046,7 @@ type
     FWnd: HWnd;
     procedure SetIcon(const Value: HIcon);
     procedure SetActive(const Value: Boolean);
-    procedure SetTrayIcon( const Value : DWORD );
+    function SetTrayIcon( const Value : DWORD ): Boolean;
     procedure SetTooltip(const Value: KOLString);
     procedure SetAutoRecreate(const Value: Boolean);
   protected
@@ -11075,6 +11085,10 @@ type
        when Explorer is restarted for some (unpredictable) reasons. Otherwise,
        your tray icon is disappeared forever, and if this is the single way
        to communicate with your application, the user nomore can achieve it. }
+    procedure ForceActive(SleepTime, Timeout: DWORD);
+    {* Sets Active := TRUE unil it becomes TRUE or Timeout exceeds, sleeping
+       for SleepTime milliseconds between attempts. E.g.:
+       Trayicon1.ForceActive(100, 5000); }
     property NoAutoDeactivate: Boolean read FNoAutoDeactivate write FNoAutoDeactivate;
     {* If set to true, tray icon is not removed from tray automatically on
        WM_CLOSE message receive by owner control. Set Active := FALSE in
@@ -11172,6 +11186,9 @@ procedure MsgOK( const S: KOLString );
 function ShowMsg( const S: KOLString; Flags: DWORD ): DWORD;
 {* Displays message box like MsgBox, but uses Applet.Handle as a parent
    (so the message has no button on a task bar). }
+function ShowMsgCentered( Ctl: PControl; const S: KOLString; Flags: DWORD ): DWORD;
+{* Displays message box like ShowMsg, but centers it on a control (or form)
+   given by Ctl parameter. }
 procedure ShowMessage( const S: KOLString );
 {* Like ShowMsg, but has only styles MB_OK and MB_SETFOREGROUND. }
 {$ENDIF GDI}
@@ -11437,6 +11454,12 @@ function InsertSeparators( const s: KOLString; chars_between: Integer;
 {* Inserts given Separator between symbols in s, separating each portion of
    chars_between characters with a Separator starting from right side. See also:
    Int2Ths function. }
+function oem2char(const s: String): String;
+{* Converts string from OEM to ANSI. }
+function ansi2oem(const s: String): String;
+{* Converts ANSI string to OEM}
+function smartOem2ansiRus(const s: String): String;
+{* Smartly converts string from OEM to ANSI (only Russian!). See code. }
 {$IFDEF WIN}
 {$IFNDEF _FPC}
 //{$IFNDEF PAS_ONLY}
@@ -13345,6 +13368,20 @@ function GetAcceleratorText( const Accelerator: TMenuAccelerator ): KOLString;
 
    <R System functions and working with windows>
 }
+
+function ComputerName: KOLString;
+{* Returns computer name. }
+function UserName: KOLString;
+{* Returns user name (login). }
+{$IFDEF _D3orHIGHER}
+function ListUsers: PStrList;
+{* Returns a list of users currently logined to a system.
+   Don't forget to free it when it is not more necessary! }
+type TUserRights = (urUnknown, urAdmin, urUser);
+function IsUserAdmin(s: KOLString): TUserRights;
+{* Returns TRUE if a user (given by s) has administrator rights on a computer. }
+{$ENDIF}
+
 type
   TWindowChildKind = ( wcActive, wcFocus, wcCapture, wcMenuOwner,
                        wcMoveSize, wcCaret );
@@ -13362,6 +13399,11 @@ function GetFocusedChild( Wnd: HWnd ): HWnd;
 {* Returns focused child of given window (which should be foreground
    and active, certainly). 0 is returned either if Wnd is not active
    or Wnd has no focused child window. }
+
+function ForceSetForegroundWindow: Integer;
+{* Calls AllowSetForegroundWindow (if available) and changes
+   SPI_SETFOREGROUNDLOCKTIMEOUT to 0, returning previus value got by
+   SPI_GETFOREGROUNDLOCKTIMEOUT. If failed, -1 is returned }
 
 function Stroke2Window( Wnd: HWnd; const S: AnsiString ): Boolean;
 {* Posts characters from string S to those child window of Wnd, which
@@ -13384,6 +13426,12 @@ function Stroke2WindowEx( Wnd: HWnd; const S: AnsiString; Wait: Boolean ): Boole
    simulate pressing it with determining all Shift combinations and it is
    sufficient to pass characters as is. (E.g., not '[Shift 1]', but '!'). }
 
+{$IFDEF _D5orHIGHER}
+function SendCommands2Wnd(WndHandle: Hwnd; const s: KOLString): Boolean;
+{* Sends commands to a window "as is" (e.g. #13 for Enter).
+   Can pass up to 4K key commands at a time vewry fast. }
+{$ENDIF}
+
 function FindWindowByThreadID( ThreadID : DWORD ) : HWnd;
 {* Searches for window, belonging to a given thread. }
 
@@ -13392,6 +13440,17 @@ function DesktopPixelFormat: TPixelFormat;
    Use this function to decide which format to use for converting bitmap,
    planned to draw transparently using TBitmap.DrawTransparent or
    TBitmap.StretchDrawTransparent methods. }
+
+{$IFDEF _D4orHIGHER}
+type TRectsArray = array of TRect;
+function ListMonitors: TRectsArray;
+{* Lists all monitors in system, returns an array of rectangles with its
+   coordinates and sizes. }
+
+function MonitorAt(X, Y: Integer): TRect;
+{* Returns monitor where given point (X,Y) is located. If not found, main monitor
+   bounds is returned. }
+{$ENDIF}
 
 function GetDesktopRect : TRect;
 {* Returns rectangle of screen, free of taskbar and other
@@ -15261,8 +15320,8 @@ end;
  {$I visual_xp_styles.inc}
 {$ENDIF}
 
-{$IFDEF SNAPMOUSE2DFLTBTN}
 var FoundMsgBoxWnd: HWnd;
+    Ctl2CenterMsgBox: PControl;
 
 function EnumProcSnapMouse2DfltBtn( W: HWnd; lParam: Integer ): BOOL; stdcall;
 var ClassBuf: array[ 0..31 ] of KOLChar;
@@ -15275,6 +15334,8 @@ begin
     Result := FALSE;
   end;
 end;
+
+{$IFDEF SNAPMOUSE2DFLTBTN}
 
 function WndProcSnapMouse2DfltBtn( Sender: PControl; var M: TMsg; var Rslt: Integer ): Boolean;
 var W: HWnd;
@@ -15376,6 +15437,41 @@ begin
   {$ENDIF}
 end;
 {$ENDIF PAS_VERSION}
+
+function WndProcCenterMsgBox( Sender: PControl; var M: TMsg; var Rslt: Integer ): Boolean;
+var R, Rctl: TRect;
+    Sz: TSize;
+begin
+  Result := FALSE;
+  if Ctl2CenterMsgBox = nil then Exit;
+  FoundMsgBoxWnd := 0;
+  EnumThreadWindows( GetCurrentThreadID, @ EnumProcSnapMouse2DfltBtn, 0 );
+  if FoundMsgBoxWnd <> 0 then
+  begin
+     GetWindowRect(FoundMsgBoxWnd, R);
+     Rctl := Ctl2CenterMsgBox.BoundsRect;
+     Sz.cx := Rctl.Right - Rctl.Left;
+     Sz.cy := Rctl.Bottom - Rctl.Top;
+     if Ctl2CenterMsgBox.Parent <> nil then
+         Rctl.TopLeft := Ctl2CenterMsgBox.Parent.Client2Screen(Rctl.TopLeft);
+     OffsetRect(R, -R.Left + Rctl.Left + (Sz.cx - (R.Right - R.Left)) div 2,
+                   - R.top + Rctl.Top + (Sz.cy - (R.Bottom - R.Top)) div 2);
+     SetWindowPos( FoundMsgBoxWnd, 0, R.Left, R.Top, 0, 0,
+         SWP_NOSIZE or SWP_NOZORDER );
+     Ctl2CenterMsgBox := nil;
+  end;
+end;
+
+function ShowMsgCentered( Ctl: PControl; const S: KOLString; Flags: DWORD ): DWORD;
+var Title: Pchar;
+begin
+    Ctl2CenterMsgBox := Ctl;
+    Ctl.AttachProc(WndProcCenterMsgBox);
+    Title := nil;
+    if Applet <> nil then Title := PKOLChar(Applet.fCaption);
+    Result := MessageBox(Ctl.Handle, PKOLChar(S), Title, Flags);
+    Ctl.DetachProc(WndProcCenterMsgBox);
+end;
 
 procedure ShowMessage( const S: KOLString );
 begin
@@ -17538,6 +17634,13 @@ begin
   Result := GetSystemMetrics( SM_CYSCREEN );
 end;
 {$ENDIF GDI}
+
+function MainForm: PControl;
+begin
+    Result := Applet;
+    if  AppButtonUsed then
+        Result := Applet.Children[0];
+end;
 
 //22{$IFDEF ASM_VERSION}
 //function WndProcAppAsm( Self_: PControl; var Msg: TMsg; var Rslt: Integer ): Boolean; forward;
@@ -20747,6 +20850,41 @@ begin
           Dec( Result[ I ], 32 );
 end;
 {$ENDIF PAS_VERSION}
+
+function oem2char(const s: String): String;
+begin
+    SetString(Result, PChar(s), Length(s));
+    OemToCharBuff(Pchar(s), PChar(Result), Length(Result));
+end;
+
+function ansi2oem(const s: String): String;
+begin
+    SetString(Result, PChar(s), Length(s));
+    AnsiToOemBuff(Pchar(s), PChar(Result), Length(Result));
+end;
+
+function smartOem2ansiRus(const s: String): String;
+    function good(const x, y: String): Boolean;
+    var i: Integer;
+    begin
+        Result := FALSE;
+        if  Length(x) <> Length(y) then Exit;
+        for i := 1 to Length(x) do
+        begin
+            if  x[i] = y[i] then continue;
+            if  x[i] in ['à'..'ÿ', 'À'..'ß' {, '¸', '¨'}] then
+                continue;
+            Exit;
+        end;
+        Result := TRUE;
+    end;
+begin
+    Result := oem2char(s);
+    if  good(Result, s) then Exit;
+    Result := ansi2oem(s);
+    if  good(Result, s) then Exit;
+    Result := s;
+end;
 
 {$IFDEF F_P}
 function DummyStrFun( const S: AnsiString ): AnsiString;
@@ -28212,6 +28350,197 @@ begin
   end;
 end;
 
+function ComputerName: KOLString;
+var buf: array[ 0..MAX_PATH ] of KOLChar;
+    Sz: DWORD;
+begin
+    Sz := MAX_PATH;
+    GetComputerName(buf, Sz);
+    Result := buf;
+end;
+
+function UserName: KOLString;
+var buf: array[ 0..MAX_PATH ] of KOLChar;
+    Sz: DWORD;
+begin
+    Sz := MAX_PATH;
+    GetUserName(buf, Sz);
+    Result := buf;
+end;
+
+{$IFDEF _D3orHIGHER}
+type
+  TWTS_CONNECTSTATE_CLASS = (
+    WTSActive,              // User logged on to WinStation
+    WTSConnected,           // WinStation connected to client
+    WTSConnectQuery,        // In the process of connecting to client
+    WTSShadow,              // Shadowing another WinStation
+    WTSDisconnected,        // WinStation logged on without client
+    WTSIdle,                // Waiting for client to connect
+    WTSListen,              // WinStation is listening for connection
+    WTSReset,               // WinStation is being reset
+    WTSDown,                // WinStation is down due to error
+    WTSInit);               // WinStation in initialization
+
+  PWtsSessionInfoA = ^TWTS_SESSION_INFOA;
+  TWTS_SESSION_INFOA = record
+    SessionId: DWORD;                   // session id
+    pWinStationName: PAnsiChar{LPSTR};  // name of WinStation this session is connected to
+    State: TWTS_CONNECTSTATE_CLASS;     // connection state (see enum)
+    dummy: array[ 0..2 ] of Byte;
+  end;
+  PWtsSessionInfo = PWtsSessionInfoA;
+
+  _WTS_INFO_CLASS = (
+    WTSInitialProgram,
+    WTSApplicationName,
+    WTSWorkingDirectory,
+    WTSOEMId,
+    WTSSessionId,
+    WTSUserName,
+    WTSWinStationName,
+    WTSDomainName,
+    WTSConnectState,
+    WTSClientBuildNumber,
+    WTSClientName,
+    WTSClientDirectory,
+    WTSClientProductId,
+    WTSClientHardwareId,
+    WTSClientAddress,
+    WTSClientDisplay,
+    WTSClientProtocolType,
+    WTSIdleTime,
+    WTSLogonTime,
+    WTSIncomingBytes,
+    WTSOutgoingBytes,
+    WTSIncomingFrames,
+    WTSOutgoingFrames,
+    WTSClientInfo,
+    WTSSessionInfo);
+  WTS_INFO_CLASS = _WTS_INFO_CLASS;
+  TWtsInfoClass = WTS_INFO_CLASS;
+
+function ListUsers: PStrList;
+var WTSEnumerateSessions: function(hServer: THANDLE; Reserved: DWORD;
+                          Version: DWORD; var ppSessionInfo: PWTSSESSIONINFO;
+                          var pCount: Integer): BOOL; stdcall;
+    WTSQuerySessionInformation: function(hServer: THANDLE; SessionId: DWORD;
+                          WTSInfoClass: WTS_INFO_CLASS; var ppBuffer: Pointer;
+                          var pBytesReturned: Integer): BOOL; stdcall;
+    WTSFreeMemory: procedure(pMemory: Pointer); stdcall;
+var Lib: THandle;
+    pInfo, p: PWtsSessionInfo;
+    Len, BufSize: Integer;
+    pBuf: PAnsiChar;
+    n: Integer;
+begin
+    Result := NewStrList;
+    Lib := LoadLibrary('wtsapi32.dll');
+    if  Lib <> 0 then
+    begin
+        WTSEnumerateSessions :=
+            GetProcAddress(Lib, 'WTSEnumerateSessionsA');
+        WTSQuerySessionInformation :=
+            GetProcAddress(Lib, 'WTSQuerySessionInformationA');
+        WTSFreeMemory :=
+            GetProcAddress(Lib, 'WTSFreeMemory');
+        if  Assigned(WTSEnumerateSessions) and
+            Assigned(WTSQuerySessionInformation) and
+            Assigned(WTSFreeMemory) then
+        begin
+            if WTSEnumerateSessions(
+               0 {WTS_CURRENT_SERVER_HANDLE}, 0, 1, pInfo, Len) then
+            begin
+               p := pInfo;
+               for n:=0 to Integer(Len)-1 do
+               begin
+                   pBuf := nil;
+                   if WTSQuerySessionInformation(0 {WTS_CURRENT_SERVER_HANDLE},
+                      p.SessionId, WTSUserName, Pointer(pBuf), BufSize) then
+                   begin
+                      if  Trim( pBuf ) <> '' then
+                          Result.Add(pBuf);
+                      WTSFreeMemory(pBuf);
+                   end;
+                   Inc(p);
+               end;
+            end;
+            WTSFreeMemory(pInfo);
+        end;
+    end;
+end;
+
+type
+  LPUSER_INFO_0 = ^USER_INFO_0;
+  PUSER_INFO_0 = ^USER_INFO_0;
+  _USER_INFO_0 = record
+    usri0_name: LPWSTR;
+  end;
+  USER_INFO_0 = _USER_INFO_0;
+  TUserInfo0 = USER_INFO_0;
+  PUserInfo0 = PUSER_INFO_0;
+
+  LPUSER_INFO_1 = ^USER_INFO_1;
+  PUSER_INFO_1 = ^USER_INFO_1;
+  _USER_INFO_1 = record
+    usri1_name: LPWSTR;
+    usri1_password: LPWSTR;
+    usri1_password_age: DWORD;
+    usri1_priv: DWORD;
+    usri1_home_dir: LPWSTR;
+    usri1_comment: LPWSTR;
+    usri1_flags: DWORD;
+    usri1_script_path: LPWSTR;
+  end;
+  USER_INFO_1 = _USER_INFO_1;
+  TUserInfo1 = USER_INFO_1;
+  PUserInfo1 = PUSER_INFO_1;
+
+function IsUserAdmin(s: KOLString): TUserRights;
+var NetUserGetInfo: function(servername, username: LPCWSTR; level: DWORD;
+                    var bufptr: LPUSER_INFO_1): DWORD; stdcall;
+    NetApiBufferFree: function(Buffer: Pointer): DWORD; stdcall;
+    NetGetAnyDCName: function(servername, domainname: LPCWSTR; var buf: PByte):
+                     DWORD; stdcall;
+var RC: HResult;
+    bInfo: LPUSER_INFO_1;
+    buff: PByte;
+    server: PWideChar;
+    Lib: THandle;
+begin
+    Result := urUnknown;
+    Lib := LoadLibrary('netapi32.dll');
+    if Lib = 0 then Exit;
+    NetUserGetInfo := GetProcAddress(Lib, 'NetUserGetInfo');
+    NetApiBufferFree := GetProcAddress(Lib, 'NetApiBufferFree');
+    if not Assigned(NetUserGetInfo) then Exit;
+    if not Assigned(NetApiBufferFree) then Exit;
+
+    bInfo := nil;
+    RC := NetUserGetInfo(nil, PWideChar(WideString(s)), 1, bInfo);
+    try
+        if  RC <> ERROR_SUCCESS then
+        begin
+            NetGetAnyDCName := GetProcAddress(Lib, 'NetGetAnyDCName');
+            if not Assigned(NetGetAnyDCName) then Exit;
+            server := nil;
+            buff := nil;
+            if  NetGetAnyDCName(nil, nil, buff) = ERROR_SUCCESS then
+                server := Pointer(buff);
+            RC := NetUserGetInfo(server, PWideChar(WideString(s)), 1, bInfo);
+            NetApiBufferFree(buff);
+        end;
+        if  RC = ERROR_SUCCESS then
+            if  bInfo.usri1_priv = 2 {USER_PRIV_ADMIN} then
+                Result := urAdmin
+            else
+                Result := urUser;
+    finally
+        if bInfo <> nil then NetApiBufferFree(bInfo);
+    end;
+end;
+{$ENDIF}
+
 const
   MIDATA_CHECKITEM = $40000000;
   MIDATA_RADIOITEM = $80000000;
@@ -32147,7 +32476,9 @@ begin
       if IL <> nil then
       begin
           IL.DrawingStyle := [ dsTransparent ];
-          IL.Draw( Sender.fCurIndex, Sender.fPaintDC, Sender.fClientLeft, Sender.fClientTop );
+          IL.Draw( Sender.fCurIndex, Sender.fPaintDC,
+              (Sender.Width - IL.ImgWidth) div 2,
+              (Sender.Height - IL.ImgHeight) div 2 );
           {$IFDEF TEST_IL}
           if  not FileExists(GetStartDir + 'test_IL_show.bmp') and (1 = 0) then
           begin
@@ -40617,6 +40948,21 @@ begin
   BoundsRect := PCR;
 end;
 
+{$IFDEF _D4orHIGHER}
+function TControl.CenterOnCurrentScreen: PControl;
+var R: TRect;
+begin
+    Result := @Self;
+    GetCursorPos(R.TopLeft);
+    R := MonitorAt(R.Left, R.Top);
+    R.Left := R.Left + (R.Right - R.Left - Width) div 2;
+    R.Top := R.Top + (R.Bottom - R.Top - Height) div 2;
+    R.Right := R.Left + Width;
+    R.Bottom := R.Top + Height;
+    BoundsRect := R;
+end;
+{$ENDIF}
+
 {$IFDEF ASM_VERSION}{$ELSE PAS_VERSION} //Pascal
 function TControl.GetHasBorder: Boolean;
 begin
@@ -42619,6 +42965,18 @@ begin
 end;
 {$ENDIF PAS_VERSION}
 
+procedure TTrayIcon.ForceActive(SleepTime, Timeout: DWORD);
+var Start: DWORD;
+begin
+    Start := GetTickCount;
+    while GetTickCount < Start + Timeout do
+    begin
+        Active := TRUE;
+        if  Active then Exit;
+        Sleep(SleepTime);
+    end;
+end;
+
 {$IFDEF ASM_VERSION}{$ELSE PAS_VERSION} //Pascal
 destructor TTrayIcon.Destroy;
 begin
@@ -42642,11 +43000,11 @@ begin
   if FIcon = 0 then Exit;
   if (Wnd = 0) and ((FControl = nil) or (FControl.GetWindowHandle = 0)) then
      Exit; {>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>}
-  FActive := Value;
+  //FActive := Value;
   if Value then
-     SetTrayIcon( NIM_ADD )
+     FActive := SetTrayIcon( NIM_ADD )
   else
-     SetTrayIcon( NIM_DELETE );
+     FActive := FActive and not SetTrayIcon( NIM_DELETE );
 end;
 {$ENDIF PAS_VERSION}
 
@@ -42677,8 +43035,8 @@ begin
 end;
 {$ENDIF PAS_VERSION}
 
-{$IFDEF ASM_UNICODE}{$ELSE PAS_VERSION} //Pascal
-procedure TTrayIcon.SetTrayIcon(const Value: DWORD);
+{$IFDEF ASM_UNICODE}{$ELSE PAS_VERSION} //Pascal {KOL_asm_nounicode.inc}
+function TTrayIcon.SetTrayIcon(const Value: DWORD): Boolean;
 var NID : {$IFDEF UNICODE_CTRLS} TNotifyIconDataW {$ELSE} TNotifyIconData {$ENDIF};
     L : Integer;
     V : DWORD;
@@ -42703,7 +43061,7 @@ begin
   Move( FTooltip[1], NID.szTip[0], Min( 63, L )*SizeOf(KOLChar) );
   NID.szTip[ L ] := #0;
 
-  Shell_NotifyIcon( V, @NID );
+  Result := Shell_NotifyIcon( V, @NID );
 end;
 {$ENDIF PAS_VERSION}
 
@@ -44727,7 +45085,7 @@ begin
    L := Length( AName );
    if L > 0 then
    begin
-     AName := WLowerCase( AName ) + fNameDelim;
+     AName := WLowerCase( AName ) + KOLWideString( fNameDelim );
      Inc( L );
      fCount := GetCount - 1;
      for i := 0 to fCount do
@@ -44746,8 +45104,8 @@ var
 begin
  I := IndexOfName(AName);
  if i=-1
- then Add( AName + fNameDelim + Value )
- else Items[i] := AName + fNameDelim + Value;
+ then Add( AName + KOLWideString( fNameDelim ) + Value )
+ else Items[i] := AName + KOLWideString( fNameDelim ) + Value;
 end;
 
 function TWStrList.GetValue(const AName: KOLWideString): KOLWideString;
@@ -56540,6 +56898,24 @@ begin
   Result := Wnd;
 end;
 
+function ForceSetForegroundWindow: Integer;
+var AllowSetforegroundWindow: function(proc_id: THandle): BOOL; stdcall;
+    Lib: THandle;
+begin
+    Result := -1;
+    Lib := LoadLibrary('user32.dll');
+    if Lib = 0 then Exit;
+    AllowSetforegroundWindow := GetProcAddress(Lib, 'AllowSetForegroundWindow');
+    if not Assigned(AllowSetForegroundWindow) then Exit;
+    if AllowSetforegroundWindow(GetCurrentProcessId) then
+    begin
+        SystemParametersInfo($2000 {SPI_GETFOREGROUNDLOCKTIMEOUT},
+            0, @ Result, 0);
+        SystemParametersInfo($2001 {SPI_SETFOREGROUNDLOCKTIMEOUT},
+            0, nil, SPIF_UPDATEINIFILE or SPIF_SENDWININICHANGE);
+    end;
+end;
+
 function Stroke2Window( Wnd: HWnd; const S: AnsiString ): Boolean;
 var P: PAnsiChar;
 begin
@@ -56821,6 +57197,65 @@ begin
   Result := True;
 end;
 
+{$IFDEF _D5orHIGHER}
+function SendCommands2Wnd(WndHandle: Hwnd; const s: KOLString): Boolean;
+var PiD: DWORD;
+    inp: array of TInput;
+    i, j, n, L: Integer;
+begin
+    Result := FALSE;
+    GetWindowThreadProcessId( WndHandle, {$IFDEF _D6orHigher} PiD {$ELSE} Pointer(@PiD) {$ENDIF} );
+    AttachThreadInput(GetCurrentProcessId, PiD, TRUE);
+    TRY
+        SetForegroundWindow( WndHandle );
+        SetFocus( WndHandle );
+        if  GetForegroundWindow <> WndHandle then Exit;
+        if  s <> '' then
+        begin
+            SetLength( inp, Length(s) * 2 );
+            j := 0;
+            for i := 1 to Length(s) do
+            begin
+                inp[j].Itype := INPUT_KEYBOARD;
+                inp[j].ki.wVk := 0;
+                inp[j].ki.wScan := DWORD( s[i] );
+                inp[j].ki.dwFlags := 4 { KEYEVENTF_UNICODE };
+                inp[j].ki.time := 0;
+                inp[j].ki.dwExtraInfo := 0;
+                inc(j);
+                inp[j].Itype := INPUT_KEYBOARD;
+                inp[j].ki.wVk := 0;
+                inp[j].ki.wScan := DWORD( s[i] );
+                inp[j].ki.dwFlags := KEYEVENTF_KEYUP or 4 { KEYEVENTF_UNICODE };
+                inp[j].ki.time := 0;
+                inp[j].ki.dwExtraInfo := 0;
+                inc(j);
+            end;
+            for i := 1 to 5 do
+            begin
+                SetForegroundWindow( WndHandle );
+                SetFocus( WndHandle );
+                sleep(300);
+                L := Length(inp);
+                n := SendInput( L, inp[0], SizeOf(TInput) );
+                if  n >= Length(inp) then
+                begin
+                    Result := TRUE;
+                    break;
+                end;
+                if  n > 0 then
+                begin
+                    move(inp[n], inp[0], Length(inp) - n);
+                    SetLength(inp, Length(inp) - n);
+                end;
+            end;
+        end;
+    FINALLY
+    AttachThreadInput(GetCurrentProcessId, PiD, FALSE);
+    END;
+end;
+{$ENDIF}
+
 type
   PHWnd = ^HWnd;
 
@@ -56869,6 +57304,63 @@ begin
   else Result := pfDevice;
   END;
 end;
+
+function EnumMons(hMon: THandle; hdc: HDC; rc: PRect; L: PList ): BOOL;
+         stdcall;
+begin
+    L.Add(Pointer(rc.Left));
+    L.Add(Pointer(rc.Top));
+    L.Add(Pointer(rc.Right));
+    L.Add(Pointer(rc.Bottom));
+    Result := TRUE;
+end;
+
+{$IFDEF _D4orHIGHER}
+function ListMonitors: TRectsArray;
+var EnumDisplayMonitors: function (hdc: HDC; lprcClip: PRect; lpfnEnum: Pointer;
+         dwData: PList): LongBool; stdcall;
+    Lib: THandle;
+    L: PList;
+    i, j: Integer;
+begin
+    Lib := LoadLibrary('user32.dll');
+    EnumDisplayMonitors := GetProcAddress(Lib, 'EnumDisplayMonitors');
+    if not Assigned(EnumDisplayMonitors) then
+    begin
+        SetLength(Result, 1);
+        Result[0] := MakeRect(0, 0, ScreenWidth, ScreenHeight);
+    end
+      else
+    begin
+        L := NewList;
+        EnumDisplayMonitors(0, nil, @EnumMons, L);
+        SetLength(Result, L.Count div 4);
+        j := 0;
+        for i := 0 to High(Result) do
+        begin
+            Result[i] := {MakeRect(Integer(L.Items[j]), Integer(L.Items[j+1]),
+                Integer(L.Items[j+2]), Integer(L.Items[j+3]));}
+                PRect( @ L.FItems[j] )^;
+            inc(j, 4);
+        end;
+        L.Free;
+    end;
+end;
+
+function MonitorAt(X, Y: Integer): TRect;
+var RR: TRectsArray;
+    i: Integer;
+begin
+    RR := ListMonitors;
+    for i := 0 to High(RR) do
+        if PtInRect(RR[i], MakePoint(X, Y)) then
+        begin
+            Result := RR[i];
+            Exit;
+        end;
+    Result := MakeRect(0, 0, ScreenWidth, ScreenHeight);
+end;
+{$ENDIF}
 
 function GetDesktopRect : TRect;
 var W1, W2 : HWnd;
@@ -62052,11 +62544,3 @@ finalization //.................................................................
 {$ENDIF INIT_FINIT}//-----------------------------------------------------------
 
 end.
-
-
-
-
-
-
-
-

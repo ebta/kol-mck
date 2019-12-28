@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 // KOL_ASM_NOUNICODE.inc (to inlude in KOL.pas)
-// v 3.141592
+// v 3.20
 
 // this part of code is for case when ASM_VERSION is enabled and the symbol
 // UNICODE_CTRLS is NOT defined (functions, procedures and methods which work
@@ -3475,7 +3475,7 @@ asm
         POP      EBX
 end;
 
-procedure TTrayIcon.SetTrayIcon(const Value: DWORD);
+function TTrayIcon.SetTrayIcon(const Value: DWORD): Boolean;
 const sz_tid = sizeof( TNotifyIconData );
 asm
         CMP      [AppletTerminated], 0

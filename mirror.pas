@@ -19,7 +19,7 @@ mmmmm      mmmmm     mmmmm     cccccccccccc       kkkkk     kkkkk
   Key Objects Library (C) 1999 by Kladov Vladimir.
   KOL Mirror Classes Kit (C) 2000 by Kladov Vladimir.
 ********************************************************
-* VERSION 3.1415926535897
+* VERSION 3.20
 ********************************************************
 }                     
 unit mirror;
@@ -774,6 +774,7 @@ type
     fAssignTextToControls: Boolean;
     FAssignTabOrders: Boolean;
     fFormCurrentParent: String;
+    fCenterOnCurScrn: Boolean;
     function GetFormUnit: KOLString;
     procedure SetFormMain(const Value: Boolean);
     procedure SetFormUnit(const Value: KOLString);
@@ -870,6 +871,7 @@ type
     procedure SetAssignTabOrders(const Value: Boolean);
     function GetFormCompact: Boolean;
     procedure SetFormCurrentParent(const Value: String);
+    procedure SetCenterOnCurScrn(const Value: Boolean);
   protected
     fUniqueID: Integer;
     FLocked: Boolean;
@@ -1045,6 +1047,7 @@ type
     property StayOnTop: Boolean read FStayOnTop write SetStayOnTop;
     property CanResize: Boolean read fCanResize write SetCanResize;
     property CenterOnScreen: Boolean read fCenterOnScr write SetCenterOnScr;
+    property CenterOnCurrentScreen: Boolean read fCenterOnCurScrn write SetCenterOnCurScrn;
     property Ctl3D: Boolean read FCtl3D write SetCtl3D;
     property WindowState: KOL.TWindowState read FWindowState write SetWindowState;
 
@@ -15497,6 +15500,15 @@ begin
   if not FLocked then
   begin
       S := '';
+      if  CenterOnCurrentScreen then
+      begin
+          if  FormCompact then
+          begin
+              FormAddCtlCommand( 'Form', 'TControl.CenterOnCurrentScreen', '' );
+          end else
+          S := Prefix + AName + '.CenterOnCurrentScreen';
+      end
+      else
       if  CenterOnScreen then
           if  FormCompact then
           begin
@@ -18635,6 +18647,12 @@ begin
     FormFlushedUntil := 0;
     FormIndexFlush := 0;
     FreeAndNil( FormControlsList );
+end;
+
+procedure TKOLForm.SetCenterOnCurScrn(const Value: Boolean);
+begin
+  fCenterOnCurScrn := Value;
+  Change(Self);
 end;
 
 { TKOLProject }
@@ -22276,7 +22294,8 @@ begin
     if fOwner is TKOLCustomControl then
     if (fOwner as TKOLCustomControl).CanNotChangeFontColor then
     begin
-      ShowMessage( 'Can not change font color for some of controls, such as button.' );
+      if  not (csLoading in fOwner.ComponentState) then
+          ShowMessage( 'Can not change font color for some of controls, such as button.' );
       Exit;
     end;
   end;

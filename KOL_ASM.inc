@@ -1,6 +1,6 @@
 //------------------------------------------------------------------------------
 // KOL_ASM.inc (to inlude in KOL.pas)
-// v 3.19
+// v 3.20
 
 function MsgBox( const S: KOLString; Flags: DWORD ): DWORD;
 asm
@@ -9670,26 +9670,39 @@ asm
         JE       @@exit
         MOV      ECX, [EAX].fIcon
         JECXZ    @@exit
+
+        CMP      [EAX].FWnd, 0
+        JNZ      @@ok_setvalue
+
+        MOV      ECX, [EAX].FControl
+        JECXZ    @@exit
+
         PUSH     EDX
         PUSH     EAX
-          MOV      ECX, [EAX].FWnd
-          INC      ECX
-          LOOP     @@1
-          MOV      ECX, [EAX].fControl
-          XOR      EAX, EAX
-          JECXZ    @@1
           XCHG     EAX, ECX
           CALL     TControl.GetWindowHandle
-@@1:
-        POP      ECX
+          TEST     EAX, EAX
+        POP      EAX
         POP      EDX
-        XCHG     EAX, ECX
-        JECXZ    @@exit
-        MOV      [EAX].fActive, DL
+        JZ       @@exit
+
+@@ok_setvalue:
         MOVZX    EDX, DL
         XOR      DL, 1
-        ADD      EDX, EDX
-        CALL     SetTrayIcon
+        SHL      DL, 1
+        PUSHFD
+        PUSH     EAX
+          CALL     SetTrayIcon
+        POP      EDX
+        POPFD
+        JZ       @@rslt_FActive
+
+        AND      AL, 1
+        XOR      AL, 1
+        AND      AL, byte ptr [EDX].FActive
+
+@@rslt_FActive:
+        MOV      byte ptr [EDX].FActive, AL
 @@exit:
 end;
 
